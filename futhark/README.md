@@ -12,5 +12,5 @@ to get an output image out of it.  You'll need
 and then something like:
 
 ```
-echo 500 500 | ./ray -e render_rgbbox -b | rocm ~/repos/futhark/tools/data2png.py /dev/stdin rgbbox.png
+echo 500 500 | ./ray -e render_rgbbox -b | python3 data2png.py /dev/stdin rgbbox.png
 ```
