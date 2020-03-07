@@ -77,3 +77,13 @@ Trees](https://research.nvidia.com/sites/default/files/publications/karras2012hp
 This is actually a pretty fast technique (although not for the small
 scenes used here), but it is about two hundred lines longer than the
 recursive formulation.
+
+## See also
+
+Jon Harrop's [Ray tracer language
+comparison](https://www.ffconsultancy.com/languages/ray_tracer/index.html)
+is an inspiration for this page.  The main difference is that I focus
+on parallelism.  The ray tracer here also requires the construction of
+an explicit BVH from scene data, while Jon Harrop's ray tracer used a
+functional formulation to describe the recursive structure of his
+scene.
