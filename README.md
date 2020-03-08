@@ -9,7 +9,8 @@ objective sense.  The benchmarking technique is mostly crude, so
 assume only large relative differences are meaningful.  I welcome
 contributions, as I have little confidence that any of my code is
 optimal.  I am an expert in *at most* one of the languages on
-exhibition here.
+exhibition here.  I also welcome new implementations in other
+languages!
 
 Note also that this is not a **good** ray tracer.  It does not
 generate particularly pretty images.  It's chosen simply because it
