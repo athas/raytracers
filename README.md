@@ -47,7 +47,7 @@ Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
 [F#](fsharp/) | 13ms | 5990ms | 48ms | 2647ms
 [Futhark\*](futhark/) | 5.5ms | 49ms | 5.8ms | 25.4ms
-[Haskell](haskell/) | 0.9ms | 4757s | 19.7ms | 2924ms
+[Haskell](haskell/) | 0.9ms | 4757ms | 19.7ms | 2924ms
 [MPL](https://github.com/MPLLang/mpl/blob/master/examples/src/ray.sml) | 0.4ms | 341ms | 9.4ms | 112ms
 
 \* Due to technical limitations, the Futhark implementation also
