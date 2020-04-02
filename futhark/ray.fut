@@ -162,7 +162,7 @@ let colour_to_pixel (p: colour) : pixel =
 
 type image [h][w] = [h][w]pixel
 
-let render objs width height cam : image [height][width] =
+let render_image objs width height cam : image [height][width] =
   let pixel j i =
     colour_to_pixel (trace_ray objs width height cam (height-j) i)
   in tabulate_2d height width pixel
@@ -172,12 +172,7 @@ type~ scene = { look_from: pos
               , fov: f32
               , spheres: []sphere }
 
-let from_scene width height (scene: scene) : (objs, camera) =
-  (bvh_mk sphere_aabb scene.spheres,
-   camera scene.look_from scene.look_at {x=0.0, y=1.0, z=0.0}
-          scene.fov (r32 width/r32 height))
-
-let rgbbox : scene =
+entry rgbbox : scene =
   let n = 10
   let k = 60.0
 
@@ -224,7 +219,7 @@ let rgbbox : scene =
      , look_at = {x=0.0, y= -1.0, z= -1.0}
      , fov = 75.0 }
 
-let irreg : scene =
+entry irreg : scene =
     let n = 100
     let k = 600.0
     let bottom =
@@ -240,17 +235,12 @@ let irreg : scene =
        , look_at = {x=0.0, y=10.0, z= -1.0}
        , fov = 75.0 }
 
--- ==
--- entry: bvh_rgbbox bvh_irreg render_rgbbox render_irreg
--- input { 1000 1000 }
+type~ prepared_scene = {objs:objs, cam:camera}
 
-entry bvh_rgbbox h w = from_scene h w rgbbox
-entry bvh_irreg h w = from_scene h w irreg
+entry prepare_scene h w (scene: scene) : prepared_scene =
+  {objs=bvh_mk sphere_aabb scene.spheres,
+   cam=camera scene.look_from scene.look_at {x=0.0, y=1.0, z=0.0}
+              scene.fov (r32 w/r32 h)}
 
-entry render_rgbbox h w =
-  let (objs, cam) = from_scene w h rgbbox
-  in render objs w h cam
-
-entry render_irreg h w =
-  let (objs, cam) = from_scene w h irreg
-  in render objs w h cam
+entry render h w ({objs, cam}: prepared_scene) =
+  render_image objs w h cam

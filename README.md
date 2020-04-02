@@ -46,12 +46,9 @@ Ryzen 1700X (8 cores, 16 threads) CPU and a Vega 64 GPU.
 Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
 [F#](fsharp/) | 13ms | 5990ms | 48ms | 2647ms
-[Futhark\*](futhark/) | 5.5ms | 49ms | 5.8ms | 25.4ms
+[Futhark](futhark/) | 5.5ms | 32ms | 5.8ms | 16ms
 [Haskell](haskell/) | 0.9ms | 4757ms | 19.7ms | 2924ms
 [MPL](https://github.com/MPLLang/mpl/blob/master/examples/src/ray.sml) | 0.4ms | 341ms | 9.4ms | 112ms
-
-\* Due to technical limitations, the Futhark implementation also
-counts BVH construction in the render time.
 
 ## Commentary
 
