@@ -1,6 +1,6 @@
 # F# implementation
 
-Just `make run`.  The generated `ray.exe` takes the following options,
+Just `make ray.exe`.  The generated `ray.exe` takes the following options,
 all of which are optional:
 
 * `-m height`
