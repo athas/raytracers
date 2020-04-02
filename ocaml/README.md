@@ -15,7 +15,7 @@ Also:
 
 ## Running
 
-Just `make run`.  The generated `ray.native` takes the following options,
+Just `make ray.native`. The generated `ray.native` takes the following options,
 all of which are optional:
 
 * `-m height`
