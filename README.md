@@ -64,6 +64,11 @@ MPL (which is a parallelism-oriented fork of
 here.  The code is readable, written in a completely natural style,
 and performance is excellent.
 
+Multicore OCaml is quite slow, which is expected, as it is not
+finished.  Judging by monitoring the CPU activity, it looks like it is
+not fully utilising the cores.  Perhaps a sequential bottleneck in
+garbage collection?  Hopefully it will get faster in the future.
+
 While Futhark is fast, the code is significantly longer and more
 complex.  This is particularly because of the BVH construction.  In
 all other implementations, the BVH is expressed as a straightforward
