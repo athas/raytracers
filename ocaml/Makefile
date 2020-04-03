@@ -1,7 +1,10 @@
 all: rgbbox_1000.ppm irreg_1000.ppm
 
-ray.native: ray.ml
-	ocamlbuild ray.native
+ray.native: ray.ml timing.o
+	ocamlbuild ray.native -lflags timing.o
+
+timing.o: timing.c
+	ocamlbuild timing.o
 
 rgbbox_1000.ppm: ray.native
 	./ray.native -f $@ -s rgbbox -n 1000 -m 1000

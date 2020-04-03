@@ -49,6 +49,7 @@ Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 [Futhark](futhark/) | 5.5ms | 32ms | 5.8ms | 16ms
 [Haskell](haskell/) | 0.9ms | 4757ms | 19.7ms | 2924ms
 [MPL](https://github.com/MPLLang/mpl/blob/master/examples/src/ray.sml) | 0.4ms | 341ms | 9.4ms | 112ms
+[OCaml](ocaml/) | 3.1ms | 50735ms | 6486ms | 39966ms
 
 ## Commentary
 
