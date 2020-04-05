@@ -1,1 +1,4 @@
 #true: thread
+
+true: bin_annot, debug
+true: package(domainslib)
