@@ -334,49 +334,53 @@ module Workers = struct
   
 end
 
-let render ~objs ~width ~height ~cam ~num_domains ~chunk_size =
+module Render = struct 
+
   let pixel l =
     let i = l mod width in
     let j = height - l / width 
     in colour_to_pixel (trace_ray objs width height cam j i) 
-  in
+
   let pixel_work ~input ~output ~start ~stop =
     for i = start to stop do
       output.(i) <- pixel i
     done
-  in
-  let n = height * width in
-  (*> Note: Chan.t is a bounded channel, where 'make' takes the bound as parameter*)
-  let pixels_work_queue = Chan.make (
-    n / chunk_size +
-    1 + (*remaining work*)
-    num_domains (*quit messages*)
-  )
-  in
-  let output = Array.make n (0, 0, 0) in
-  begin
-    Workers.create_work
-      ~num_domains
-      ~chunk_size
-      ~chan:pixels_work_queue
-      ~start:0
-      ~left:n;
-    let input = () in
-    let chan = pixels_work_queue in
-    let domains =
-      Array.init (num_domains - 1) (fun _ ->
-        Domain.spawn
-          (fun _ -> Workers.worker ~f:pixel_work ~input ~output ~chan))
-    in
-    Workers.worker ~f:pixel_work ~input ~output ~chan;
-    Array.iter Domain.join domains;
-  end;
-  {
-    width;
-    height;
-    pixels = output
-  }
 
+  let render ~objs ~width ~height ~cam ~num_domains ~chunk_size =
+    let n = height * width in
+    (*> Note: Chan.t is a bounded channel, where 'make' takes the bound as parameter*)
+    let pixels_work_queue = Chan.make (
+      n / chunk_size +
+      1 + (*remaining work*)
+      num_domains (*quit messages*)
+    )
+    in
+    let input = () in
+    let output = Array.make n (0, 0, 0) in
+    let chan = pixels_work_queue in
+    begin
+      Workers.create_work
+        ~num_domains
+        ~chunk_size
+        ~chan
+        ~start:0
+        ~left:n;
+      let domains =
+        Array.init (num_domains - 1) (fun _ ->
+          Domain.spawn
+            (fun _ -> Workers.worker ~f:pixel_work ~input ~output ~chan))
+      in
+      Workers.worker ~f:pixel_work ~input ~output ~chan;
+      Array.iter Domain.join domains;
+    end;
+    {
+      width;
+      height;
+      pixels = output
+    }
+
+end
+  
 type scene = {
   look_from : pos;
   look_at : pos;
@@ -531,7 +535,7 @@ let () =
 
   let num_domains = getopt "--cores" argv int_of_string 8 in
   let chunk_size_bvh = getopt "--chunk-size-bvh" argv int_of_string 16 in
-  let chunk_size_render = getopt "--chunk-size-render" argv int_of_string 128 in
+  let chunk_size_render = getopt "--chunk-size-render" argv int_of_string 256 in
 
   let height = getopt "-m" argv int_of_string 200 in
   let width = getopt "-n" argv int_of_string 200 in
@@ -552,9 +556,11 @@ let () =
   let _ = Printf.printf "Scene BVH construction in %fs.\n" (t' -. t) in
 
   let t = seconds() in
-  let result = render ~objs ~width ~height ~cam
-      ~num_domains
-      ~chunk_size:chunk_size_render in
+  let result =
+    Render.render
+      ~num_domains ~chunk_size:chunk_size_render
+      ~objs ~width ~height ~cam
+  in
   let t' = seconds() in
   let _ = Printf.printf "Rendering in %fs.\n" (t' -. t) in
 
