@@ -291,14 +291,13 @@ let sp = Printf.sprintf
 
 let image2ppm : image -> string = fun image -> 
   let on_pixel acc (r, g, b) = sp "%d %d %d\n" r g b :: acc in
-  String.concat "" @@ List.flatten [
-    [
+  String.concat "" @@ List.rev_append (*< is tailrec in contrast with 'flatten'*) 
+    (List.rev [
       "P3\n";
       sp "%d %d\n" image.width image.height;
       "255\n";
-    ];
-    image.pixels |> Array.to_list |> List.fold_left on_pixel [] |> List.rev;
-  ]
+    ])
+    (image.pixels |> Array.to_list |> List.fold_left on_pixel [] |> List.rev)
 
 module Workers = struct 
 
