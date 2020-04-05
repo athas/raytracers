@@ -46,12 +46,10 @@ Ryzen 1700X (8 cores, 16 threads) CPU and a Vega 64 GPU.
 Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
 [F#](fsharp/) | 13ms | 5990ms | 48ms | 2647ms
-[Futhark\*](futhark/) | 5.5ms | 49ms | 5.8ms | 25.4ms
+[Futhark](futhark/) | 5.5ms | 32ms | 5.8ms | 16ms
 [Haskell](haskell/) | 0.9ms | 4757ms | 19.7ms | 2924ms
 [MPL](https://github.com/MPLLang/mpl/blob/master/examples/src/ray.sml) | 0.4ms | 341ms | 9.4ms | 112ms
-
-\* Due to technical limitations, the Futhark implementation also
-counts BVH construction in the render time.
+[OCaml](ocaml/) | 3.1ms | 50735ms | 6486ms | 39966ms
 
 ## Commentary
 
@@ -65,6 +63,11 @@ MPL (which is a parallelism-oriented fork of
 [MLton](http://mlton.org/) for Standard ML) is definitely the star
 here.  The code is readable, written in a completely natural style,
 and performance is excellent.
+
+Multicore OCaml is quite slow, which is expected, as it is not
+finished.  Judging by monitoring the CPU activity, it looks like it is
+not fully utilising the cores.  Perhaps a sequential bottleneck in
+garbage collection?  Hopefully it will get faster in the future.
 
 While Futhark is fast, the code is significantly longer and more
 complex.  This is particularly because of the BVH construction.  In

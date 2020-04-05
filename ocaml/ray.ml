@@ -289,12 +289,12 @@ type image = {
 let sp = Printf.sprintf
 
 let image2ppm : image -> string = fun image -> 
-  let on_pixel acc (r, g, b) = sp "%d %d %d" r g b :: acc in
-  String.concat "\n" @@ List.flatten [
+  let on_pixel acc (r, g, b) = sp "%d %d %d\n" r g b :: acc in
+  String.concat "" @@ List.flatten [
     [
-      "P3";
-      sp "%d %d" image.width image.height;
-      "255";
+      "P3\n";
+      sp "%d %d\n" image.width image.height;
+      "255\n";
     ];
     image.pixels |> Array.to_list |> List.fold_left on_pixel [] |> List.rev;
   ]
@@ -460,6 +460,10 @@ let rec getopt needle argv f def =
 let some x = Some x
 let id x = x
 
+external useconds : unit -> int = "useconds"
+
+let seconds() = float_of_int (useconds()) /. 1000000.0
+
 let () =
   let argv = Sys.argv |> Array.to_list in
   let height = getopt "-m" argv int_of_string 200 in
@@ -475,17 +479,15 @@ let () =
   (*Note: Unix module was not implemented in Multicore OCaml, 
     .. and Sys.time times all threads time accumulated?*)
 
-  (* let t = Sys.time () in *)
+  let t = seconds() in
   let (objs, cam) = from_scene width height scene in
-  (* let t' = Sys.time () in
-   * let _ = Printf.printf "Debug -- t = %f -- t' = %f\n" t t' in
-   * let _ = Printf.printf "Scene BVH construction in %fs.\n" (t' -. t) in *)
+  let t' = seconds() in
+  let _ = Printf.printf "Scene BVH construction in %fs.\n" (t' -. t) in
 
-  (* let t = Sys.time () in *)
+  let t = seconds() in
   let result = render objs width height cam in
-  (* let t' = Sys.time () in
-   * let _ = Printf.printf "Debug -- t = %f -- t' = %f\n" t t' in
-   * let _ = Printf.printf "Rendering in %fs." (t' -. t) in *)
+  let t' = seconds() in
+  let _ = Printf.printf "Rendering in %fs.\n" (t' -. t) in
 
   match imgfile with
   | None ->

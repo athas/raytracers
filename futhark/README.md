@@ -1,16 +1,13 @@
 # Futhark implementation
 
-Benchmark with
+Because we want to benchmark the rendering time independently of the
+BVH construction and scene creation, we don't use the normal `futhark
+bench` tool.  Instead we have a C program, `main.c` that calls the
+Futhark program as a library.  Run `make` to build and then benchmark
+with e.g.
 
 ```
-$ futhark bench --backend=opencl .
+$ ./main -n 1000 -m 1000 -s rgbbox -f rgbbox.ppm
 ```
 
-Due to Futhark's limitations and sharp edges, it's a bit more tricky
-to get an output image out of it.  You'll need
-[data2png.py](https://github.com/diku-dk/futhark/blob/master/tools/data2png.py)
-and then something like:
-
-```
-echo 500 500 | ./ray -e render_rgbbox -b | python3 data2png.py /dev/stdin rgbbox.png
-```
+This will also create an output image.
