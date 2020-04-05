@@ -1,3 +1,4 @@
+module Chan = Domainslib.Chan
 
 type vec3 = {
   x : float;
@@ -299,20 +300,81 @@ let image2ppm : image -> string = fun image ->
     image.pixels |> Array.to_list |> List.fold_left on_pixel [] |> List.rev;
   ]
 
-let render objs width height cam : image =
-  let pixel l () =
+module Workers = struct 
+
+  (** Helpers for managing domain workers, derived from the following Multicore 
+      OCaml benchmark:
+      https://github.com/ocaml-bench/sandmark/blob/master/benchmarks/multicore-grammatrix/grammatrix_multicore.ml
+  *)
+  
+  type message =
+    | Work of int (*start*) * int (*stop*)
+    | Quit
+  
+  let create_work ~num_domains ~chunk_size ~chan ~start ~left =
+    let rec aux ~start ~left = 
+      if left < chunk_size then begin
+        Chan.send chan (Work (start, start + left - 1));
+        for _i = 1 to num_domains do
+          Chan.send chan Quit
+        done
+      end else begin
+        Chan.send chan (Work (start, start + chunk_size - 1));
+        aux ~start:(start + chunk_size) ~left:(left - chunk_size)
+      end
+    in
+    aux ~start ~left
+
+  let rec worker ~f ~input ~output ~chan =
+    match Chan.recv chan with
+    | Work (start, stop) ->
+      f ~input ~output ~start ~stop;
+      worker ~f ~input ~output ~chan
+    | Quit -> ()
+  
+end
+
+let render ~objs ~width ~height ~cam ~num_domains ~chunk_size =
+  let pixel l =
     let i = l mod width in
     let j = height - l / width 
-    in colour_to_pixel (trace_ray objs width height cam j i) in
-  let make_pixel_task l = Domain.spawn @@ pixel l in
-  let pixels =
-    Array.init (height * width) make_pixel_task
-    |> Array.map Domain.join
+    in colour_to_pixel (trace_ray objs width height cam j i) 
   in
+  let pixel_work ~input ~output ~start ~stop =
+    for i = start to stop do
+      output.(i) <- pixel i
+    done
+  in
+  let n = height * width in
+  (*> Note: Chan.t is a bounded channel, where 'make' takes the bound as parameter*)
+  let pixels_work_queue = Chan.make (
+    n / chunk_size +
+    1 + (*remaining work*)
+    num_domains (*quit messages*)
+  )
+  in
+  let output = Array.make n (0, 0, 0) in
+  begin
+    Workers.create_work
+      ~num_domains
+      ~chunk_size
+      ~chan:pixels_work_queue
+      ~start:0
+      ~left:n;
+    let input = () in
+    let chan = pixels_work_queue in
+    let domains =
+      Array.init (num_domains - 1) (fun _ ->
+        Domain.spawn
+          (fun _ -> Workers.worker ~f:pixel_work ~input ~output ~chan))
+    in
+    Workers.worker ~f:pixel_work ~input ~output ~chan;
+    Array.iter Domain.join domains;
+  end;
   {
-    width = width;
-    height = height;
-    pixels = pixels;
+    width;
+    height;
+    pixels = output
   }
 
 type scene = {
@@ -466,6 +528,11 @@ let seconds() = float_of_int (useconds()) /. 1000000.0
 
 let () =
   let argv = Sys.argv |> Array.to_list in
+
+  let num_domains = getopt "--cores" argv int_of_string 8 in
+  let chunk_size_bvh = getopt "--chunk-size-bvh" argv int_of_string 16 in
+  let chunk_size_render = getopt "--chunk-size-render" argv int_of_string 128 in
+
   let height = getopt "-m" argv int_of_string 200 in
   let width = getopt "-n" argv int_of_string 200 in
   let imgfile = getopt "-f" argv some None in
@@ -485,7 +552,9 @@ let () =
   let _ = Printf.printf "Scene BVH construction in %fs.\n" (t' -. t) in
 
   let t = seconds() in
-  let result = render objs width height cam in
+  let result = render ~objs ~width ~height ~cam
+      ~num_domains
+      ~chunk_size:chunk_size_render in
   let t' = seconds() in
   let _ = Printf.printf "Rendering in %fs.\n" (t' -. t) in
 
