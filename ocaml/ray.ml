@@ -310,8 +310,16 @@ module Workers = struct
   type message =
     | Work of int (*start*) * int (*stop*)
     | Quit
-  
-  let create_work ~num_domains ~chunk_size ~chan ~start ~left =
+
+  let create_work_queue ~n ~chunk_size ~num_domains =
+    Chan.make (
+      n / chunk_size +
+      1 + (*remaining work*)
+      num_domains (*quit messages*)
+    )    
+
+  let create_work ~n ~num_domains ~chunk_size =
+    let chan = create_work_queue ~n ~chunk_size ~num_domains in
     let rec aux ~start ~left = 
       if left < chunk_size then begin
         Chan.send chan (Work (start, start + left - 1));
@@ -323,64 +331,45 @@ module Workers = struct
         aux ~start:(start + chunk_size) ~left:(left - chunk_size)
       end
     in
-    aux ~start ~left
+    aux ~start:0 ~left:n;
+    chan
 
-  let rec worker ~f ~input ~output ~chan =
-    match Chan.recv chan with
+  let rec worker ~f ~input ~output ~work_queue =
+    match Chan.recv work_queue with
     | Work (start, stop) ->
       f ~input ~output ~start ~stop;
-      worker ~f ~input ~output ~chan
+      worker ~f ~input ~output ~work_queue
     | Quit -> ()
   
 end
 
-module Render = struct 
-
+let render ~objs ~width ~height ~cam ~num_domains ~chunk_size =
   let pixel l =
     let i = l mod width in
     let j = height - l / width 
-    in colour_to_pixel (trace_ray objs width height cam j i) 
-
+    in colour_to_pixel (trace_ray objs width height cam j i)
+  in
   let pixel_work ~input ~output ~start ~stop =
-    for i = start to stop do
-      output.(i) <- pixel i
-    done
-
-  let render ~objs ~width ~height ~cam ~num_domains ~chunk_size =
-    let n = height * width in
-    (*> Note: Chan.t is a bounded channel, where 'make' takes the bound as parameter*)
-    let pixels_work_queue = Chan.make (
-      n / chunk_size +
-      1 + (*remaining work*)
-      num_domains (*quit messages*)
-    )
+    for i = start to stop do output.(i) <- pixel i done
+  in
+  let n = height * width in
+  let output = Array.make n (0, 0, 0) in
+  begin
+    let work_queue = Workers.create_work ~n ~num_domains ~chunk_size in
+    let domains =
+      Array.init (num_domains - 1) (fun _ ->
+        Domain.spawn
+          (fun _ -> Workers.worker ~f:pixel_work ~input:() ~output ~work_queue))
     in
-    let input = () in
-    let output = Array.make n (0, 0, 0) in
-    let chan = pixels_work_queue in
-    begin
-      Workers.create_work
-        ~num_domains
-        ~chunk_size
-        ~chan
-        ~start:0
-        ~left:n;
-      let domains =
-        Array.init (num_domains - 1) (fun _ ->
-          Domain.spawn
-            (fun _ -> Workers.worker ~f:pixel_work ~input ~output ~chan))
-      in
-      Workers.worker ~f:pixel_work ~input ~output ~chan;
-      Array.iter Domain.join domains;
-    end;
-    {
-      width;
-      height;
-      pixels = output
-    }
+    Workers.worker ~f:pixel_work ~input ~output ~work_queue;
+    Array.iter Domain.join domains;
+  end;
+  {
+    width;
+    height;
+    pixels = output
+  }
 
-end
-  
 type scene = {
   look_from : pos;
   look_at : pos;
@@ -557,7 +546,7 @@ let () =
 
   let t = seconds() in
   let result =
-    Render.render
+    render
       ~num_domains ~chunk_size:chunk_size_render
       ~objs ~width ~height ~cam
   in
