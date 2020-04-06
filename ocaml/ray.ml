@@ -523,11 +523,13 @@ external useconds : unit -> int = "useconds"
 
 let seconds() = float_of_int (useconds()) /. 1000000.0
 
+(*todo
+  * update manual with args
+*)
 let () =
   let argv = Sys.argv |> Array.to_list in
 
   let num_domains = getopt "--cores" argv int_of_string 8 in
-  let chunk_size_bvh = getopt "--chunk-size-bvh" argv int_of_string 16 in
   let chunk_size_render = getopt "--chunk-size-render" argv int_of_string 256 in
 
   let height = getopt "-m" argv int_of_string 200 in
