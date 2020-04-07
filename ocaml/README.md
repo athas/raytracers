@@ -1,6 +1,6 @@
 # Multicore OCaml implementation 
 
-Multicore OCaml was still in development while this code was written, so bad performance should 
+Multicore OCaml is still in development while this code is being written, so bad performance should 
 be taken lightly.
 
 ## Requisites
@@ -11,7 +11,7 @@ Install Opam and make the development Multicore OCaml `switch`:
   * Multicore OCaml can be gotten in its development state using Opam: https://github.com/ocaml-multicore/multicore-opam
 
 Also:
-```opam install ocamlbuild```
+```opam install ocamlbuild domainslib```
 
 ## Running
 
@@ -22,3 +22,5 @@ all of which are optional:
 * `-n width`
 * `-f file.ppm`
 * `-s <rgbbox|irreg>`
+* `--cores number-of-cores`
+* `--chunk-size-render chunk-size-of-pixels`

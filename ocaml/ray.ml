@@ -523,9 +523,6 @@ external useconds : unit -> int = "useconds"
 
 let seconds() = float_of_int (useconds()) /. 1000000.0
 
-(*todo
-  * update manual with args
-*)
 let () =
   let argv = Sys.argv |> Array.to_list in
 
