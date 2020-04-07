@@ -1,7 +1,7 @@
 all: rgbbox_1000.ppm irreg_1000.ppm
 
 ray.native: ray.ml timing.o
-	ocamlbuild ray.native -lflags timing.o
+	ocamlbuild -use-ocamlfind ray.native -lflags timing.o
 
 timing.o: timing.c
 	ocamlbuild timing.o
