@@ -49,7 +49,7 @@ Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 [Futhark](futhark/) | 5.5ms | 32ms | 5.8ms | 16ms
 [Haskell](haskell/) | 0.9ms | 4757ms | 19.7ms | 2924ms
 [MPL](https://github.com/MPLLang/mpl/blob/master/examples/src/ray.sml) | 0.4ms | 341ms | 9.4ms | 112ms
-[OCaml](ocaml/) | 3.1ms | 50735ms | 6486ms | 39966ms
+[OCaml](ocaml/) | 4.5ms | 1324ms | 7363ms | 528ms
 
 ## Commentary
 
@@ -64,10 +64,9 @@ MPL (which is a parallelism-oriented fork of
 here.  The code is readable, written in a completely natural style,
 and performance is excellent.
 
-Multicore OCaml is quite slow, which is expected, as it is not
-finished.  Judging by monitoring the CPU activity, it looks like it is
-not fully utilising the cores.  Perhaps a sequential bottleneck in
-garbage collection?  Hopefully it will get faster in the future.
+Multicore OCaml is quite fast, except for BVH construction on the
+`irreg` scene.  It required more hand-tweaking to run fast than the
+other implementations, but it seems to have paid off.
 
 While Futhark is fast, the code is significantly longer and more
 complex.  This is particularly because of the BVH construction.  In
