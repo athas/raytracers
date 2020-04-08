@@ -84,7 +84,82 @@ let rec split n xs =
     let (left, right) = split (n-1) xs'
     in (x::left, right)
 
+module type ForkJoinSpecs = sig
+  val num_domains : int
+end
+
+module MakeForkJoin(S:ForkJoinSpecs) = struct
+
+  type work = unit -> unit
+  
+  (*spec: 
+    * block until both f and g are done
+    * run the two thunks in parallel
+    * problem: need to pass arbitrary types to/from existing domains
+      * < just begin with one specific type .. 
+        * hmm it's already parameterized, so not specific..
+      * just hide the type in a fc-module?
+        * having a 
+          * run function of type unit -> unit
+          * result value of type t
+        * idea: could this be done by sending this fc-module over a channel, 
+          .. giving a return-channel too
+      * > univ type?
+        * .. but can I get a type witness?
+          * yes seems so: https://discuss.ocaml.org/t/types-as-first-class-citizens-in-ocaml/2030/3
+            * problem: how to run a computation inside a univ type (gadt)?
+      * idea! just pass a 'unit -> unit' function over channel to domain, 
+        .. which writes result to chan! 
+        * > problem: but chan's block on receive?
+          * so how to continue working in current domain (if in worker)?
+            * idea: have some way of polling chan or making it into a promise
+    * problem: new calls to par need to pause previous work
+      * or prev work signals pause themselves?
+        * > yes by calling par -> so par performs an effect
+    * spec 2 from beginning:
+      * 'block' until f and g are done 
+        * in reality an effect is performed, 
+          * and the functions continuation is saved to be run later
+            * use a ref/mutable-queue to communicate result back from thunk
+  *)
+
+  effect Par : (work * work) -> unit
+  
+  let par : type a b. (unit -> a) * (unit -> b) -> (a * b) = fun (f, g) ->
+    let res_f = ref None 
+    and res_g = ref None in
+    let run_f () = res_f := Some (f ())
+    and run_g () = res_g := Some (g ()) in
+    perform @@ Par (run_f, run_g);
+    match !res_f, !res_g with
+    | Some fv, Some gv -> fv, gv
+    | _ -> failwith "ForkJoin.par: results not set"
+
+  let scheduler : type a b. (a -> b) -> a -> b = fun main x ->
+    let work_queue : work Chan.t = Chan.make @@ S.num_domains (* * 512 *) in
+    let worker () = Chan.recv work_queue () in
+    (*< todo think about number again*)
+    let domains : unit Domain.t array =
+      Array.init S.num_domains (fun _ -> Domain.spawn worker) in
+    let rec aux : type c d. (c -> d) -> c -> d = fun f x ->
+      match f x with
+      | v -> v
+      | effect (Par (work, work')) k ->
+        Chan.send work_queue (aux work);
+        Chan.send work_queue (aux work');
+        continue k ()
+    in
+    let res = aux main x in
+    Array.iter Domain.join domains;
+    res
+  
+end
+
 let mk_bvh f all_objs =
+  let module ForkJoin = MakeForkJoin(struct
+    let num_domains = 8
+  end) in
+  (*<todo num-domains*)
   let rec mk d n xs =
     match xs with
     | [] -> failwith "mk_bvh: no nodes"
@@ -105,14 +180,13 @@ let mk_bvh f all_objs =
       let (left, right) =
         if n < 100
         then (do_left(), do_right())
-        else
-          let left_task = Domain.spawn do_left
-          and right_task = Domain.spawn do_right
-          in (Domain.join left_task, Domain.join right_task)
+        else ForkJoin.par (do_left, do_right)
       in
       let box = enclosing (bvh_aabb left) (bvh_aabb right)
       in Bvh_split (box, left, right)
-  in mk 0 (List.length all_objs) all_objs
+  in
+  ForkJoin.scheduler
+    (fun () -> mk 0 (List.length all_objs) all_objs) ()
 
 type pos = vec3
 type dir = vec3
