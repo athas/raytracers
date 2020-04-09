@@ -137,10 +137,6 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
 
   let scheduler : type a b. (a -> b) -> a -> b = fun main x ->
     let work_queue : work Chan.t = Chan.make @@ S.num_domains (* * 512 *) in
-    let worker () = Chan.recv work_queue () in
-    (*< todo think about number again*)
-    let domains : unit Domain.t array =
-      Array.init S.num_domains (fun _ -> Domain.spawn worker) in
     let rec aux : type c d. (c -> d) -> c -> d = fun f x ->
       match f x with
       | v -> v
@@ -149,6 +145,10 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
         Chan.send work_queue (aux work');
         continue k ()
     in
+    let worker () = Chan.recv work_queue () in
+    (*< todo think about number again*)
+    let domains : unit Domain.t array =
+      Array.init S.num_domains (fun _ -> Domain.spawn worker) in
     let res = aux main x in
     Array.iter Domain.join domains;
     res
