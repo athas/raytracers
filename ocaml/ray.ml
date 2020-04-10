@@ -179,45 +179,42 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     let work_queue : work Chan.t = Chan.make @@ 512 * S.num_domains in
     let continuation_stack : continuation_wrap Stack.t = Stack.make () 
     in
-    let rec aux = fun f x ->
-      log "aux called";
+    let aux f x = 
+      log "scheduler.aux called";
       (* log (Printf.sprintf "test_done = %b" !test_done); *)
-      begin match Stack.filter_pop continuation_stack has_work_done with
-        | None ->
-          log "aux: no work done for continuation";
-          ()
-        | Some (k, _) ->
-          log "aux: work done for continuation!";
-          Chan.send work_queue (aux k)
-          (*todo: is it really not needed to return result here..
-            * thought: the continuation returns to evaluating the function that called 'par'
-              * so only need to return from the topmost call
-          *)
-      end;
       begin match f x with
         | () ->
-          log "aux: f x returned!";
+          log "scheduler.aux: f x returned!";
           ()
         | effect (Par (work, work')) k ->
-          log "aux: Par performed";
+          log "scheduler.aux: Par performed";
           let l_done = ref false in
           let r_done = ref false in
           let set_done f r () = let v = f () in r := true; v in
-          Chan.send work_queue (set_done (aux work)  l_done);
-          Chan.send work_queue (set_done (aux work') r_done);
+          Chan.send work_queue (set_done work  l_done);
+          Chan.send work_queue (set_done work' r_done);
           let continuation_wrap =
             let c = fun () -> continue k () |> ignore in
             (c, (l_done, r_done)) in
           Stack.push continuation_stack continuation_wrap;
-          log "aux: DONE pushing on stack"
+          log "scheduler.aux: DONE pushing continuation on stack"
       end
     in
     let rec worker () =
       log "worker entered";
-      Chan.recv work_queue (); (*todo blocks when there is no more work *)
-      log "worker done work";
-      worker () in
-
+      begin match Stack.filter_pop continuation_stack has_work_done with
+        | None ->
+          log "worker: no dep-work done for continuation - taking new work instead";
+          aux (Chan.recv work_queue) (); (*todo blocks when there is no more work *)
+          log "worker: done work from work-queue";
+          worker () 
+        | Some (k, _) ->
+          log "worker: dep-work done for continuation! - starting work";
+          aux k (); (*todo; where does result of the continuation go?*)
+          log "worker: done work from continuation";
+          worker ()
+      end
+    in
     (*todo debug*)
     (* let set_done f r () = let v = f () in r := true; v in
      * Chan.send work_queue (set_done (fun _ -> ()) test_done); *)
