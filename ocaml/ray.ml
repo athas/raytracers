@@ -88,41 +88,55 @@ module type ForkJoinSpecs = sig
   val num_domains : int
 end
 
+module Stack = struct
+
+  type 'a t = 'a list Atomic.t
+
+  let make : unit -> 'a t = fun () -> Atomic.make []
+
+  let nanos = Int64.of_int @@ 0 (*todo play with this*)
+
+  let push : 'a t -> 'a -> unit = fun s v ->
+    let rec aux () =
+      let success = Domain.Sync.critical_section (fun () ->
+        let old_stack = Atomic.get s in
+        let new_stack = v :: old_stack in
+        Atomic.compare_and_set s old_stack new_stack
+      ) in
+      if success then () else (
+        (* Domain.Sync.wait_for nanos |> ignore; *)
+        aux ()
+      )
+    in
+    aux ()
+
+  let filter_pop : 'a t -> ('a -> bool) -> 'a option = fun s p ->
+    let rec aux () =
+      let result = ref None in
+      let success = Domain.Sync.critical_section (fun () ->
+        let old_stack = Atomic.get s in
+        match old_stack with
+        | head :: new_stack when p head ->
+          result := Some head;
+          Atomic.compare_and_set s old_stack new_stack
+        | _ -> false
+      ) in
+      if success then !result else (
+        (* Domain.Sync.wait_for nanos |> ignore; *)
+        aux ()
+      )
+    in
+    aux ()
+
+  let is_empty : 'a t -> bool = fun s ->
+    match filter_pop s (fun _ -> true) with None -> true | _ -> false
+
+end
+
 module MakeForkJoin(S:ForkJoinSpecs) = struct
 
   type work = unit -> unit
   
-  (*spec: 
-    * block until both f and g are done
-    * run the two thunks in parallel
-    * problem: need to pass arbitrary types to/from existing domains
-      * < just begin with one specific type .. 
-        * hmm it's already parameterized, so not specific..
-      * just hide the type in a fc-module?
-        * having a 
-          * run function of type unit -> unit
-          * result value of type t
-        * idea: could this be done by sending this fc-module over a channel, 
-          .. giving a return-channel too
-      * > univ type?
-        * .. but can I get a type witness?
-          * yes seems so: https://discuss.ocaml.org/t/types-as-first-class-citizens-in-ocaml/2030/3
-            * problem: how to run a computation inside a univ type (gadt)?
-      * idea! just pass a 'unit -> unit' function over channel to domain, 
-        .. which writes result to chan! 
-        * > problem: but chan's block on receive?
-          * so how to continue working in current domain (if in worker)?
-            * idea: have some way of polling chan or making it into a promise
-    * problem: new calls to par need to pause previous work
-      * or prev work signals pause themselves?
-        * > yes by calling par -> so par performs an effect
-    * spec 2 from beginning:
-      * 'block' until f and g are done 
-        * in reality an effect is performed, 
-          * and the functions continuation is saved to be run later
-            * use a ref/mutable-queue to communicate result back from thunk
-  *)
-
   effect Par : (work * work) -> unit
   
   let par : type a b. (unit -> a) * (unit -> b) -> (a * b) = fun (f, g) ->
@@ -135,23 +149,50 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     | Some fv, Some gv -> fv, gv
     | _ -> failwith "ForkJoin.par: results not set"
 
+  type continuation_wrap = (unit -> unit) * (bool ref * bool ref)
+
+  let has_work_done : continuation_wrap -> bool =
+    fun (_, (l, r)) -> !l && !r
+  
   let scheduler : type a b. (a -> b) -> a -> b = fun main x ->
-    let work_queue : work Chan.t = Chan.make @@ S.num_domains (* * 512 *) in
-    let rec aux : type c d. (c -> d) -> c -> d = fun f x ->
-      match f x with
-      | v -> v
-      | effect (Par (work, work')) k ->
-        Chan.send work_queue (aux work);
-        Chan.send work_queue (aux work');
-        continue k ()
+    let work_queue : work Chan.t = Chan.make S.num_domains in
+    let continuation_stack : continuation_wrap Stack.t = Stack.make () 
+    in
+    let rec aux = fun f x ->
+      begin match Stack.filter_pop continuation_stack has_work_done with
+        | None -> ()
+        | Some (k, _) ->
+          Chan.send work_queue (aux k)
+          (*todo: is it really not needed to return result here..
+            * thought: the continuation returns to evaluating the function that called 'par'
+              * so only need to return from the topmost call
+          *)
+      end;
+      begin match f x with
+        | () -> ()
+        | effect (Par (work, work')) k ->
+          let l_done = ref false in
+          let r_done = ref false in
+          let set_done f r () = let v = f () in r := true; v in
+          Chan.send work_queue (aux (set_done work  l_done));
+          Chan.send work_queue (aux (set_done work' r_done));
+          let continuation_wrap =
+            let c = fun () -> continue k () |> ignore in
+            (c, (l_done, r_done)) in
+          Stack.push continuation_stack continuation_wrap
+      end
     in
     let worker () = Chan.recv work_queue () in
     (*< todo think about number again*)
     let domains : unit Domain.t array =
       Array.init S.num_domains (fun _ -> Domain.spawn worker) in
-    let res = aux main x in
+    let result = ref None in
+    let main () = result := Some (main x) in
+    aux main ();
     Array.iter Domain.join domains;
-    res
+    match !result with
+    | Some v -> v
+    | None -> failwith "ForkJoin.scheduler: result not set"
   
 end
 
