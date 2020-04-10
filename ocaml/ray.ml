@@ -88,6 +88,8 @@ module type ForkJoinSpecs = sig
   val num_domains : int
 end
 
+let log s = Printf.printf "%s\n%!" s
+
 module Stack = struct
 
   type 'a t = 'a list Atomic.t
@@ -98,33 +100,48 @@ module Stack = struct
 
   let push : 'a t -> 'a -> unit = fun s v ->
     let rec aux () =
-      let success = Domain.Sync.critical_section (fun () ->
-        let old_stack = Atomic.get s in
-        let new_stack = v :: old_stack in
-        Atomic.compare_and_set s old_stack new_stack
-      ) in
+      log "Stack.push.aux entered";
+      let success = 
+        Domain.Sync.critical_section (fun () ->
+          let old_stack = Atomic.get s in
+          let new_stack = v :: old_stack in
+          Atomic.compare_and_set s old_stack new_stack
+        )
+      in
       if success then () else (
-        (* Domain.Sync.wait_for nanos |> ignore; *)
+        Domain.Sync.wait_for nanos |> ignore;
         aux ()
       )
     in
     aux ()
 
   let filter_pop : 'a t -> ('a -> bool) -> 'a option = fun s p ->
+    print_endline "filter_pop entered";
     let rec aux () =
+      (* log "Stack.filter_pop.aux entered"; *)
       let result = ref None in
-      let success = Domain.Sync.critical_section (fun () ->
-        let old_stack = Atomic.get s in
-        match old_stack with
-        | head :: new_stack when p head ->
-          result := Some head;
-          Atomic.compare_and_set s old_stack new_stack
-        | _ -> false
-      ) in
-      if success then !result else (
-        (* Domain.Sync.wait_for nanos |> ignore; *)
-        aux ()
-      )
+      let success = 
+        Domain.Sync.critical_section (fun () ->
+          (* print_endline "filter_pop aux entered"; *)
+          let old_stack = Atomic.get s in
+          match old_stack with
+          | head :: new_stack ->
+            if not (p head) then (
+              result := None;
+              true
+            ) else (
+              result := Some head;
+              Atomic.compare_and_set s old_stack new_stack
+            )
+          | [] ->
+            result := None;
+            true
+          | _ ->
+            Domain.Sync.wait_for nanos |> ignore;
+            false
+        )
+      in
+      if success then !result else aux ()
     in
     aux ()
 
@@ -147,21 +164,27 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     perform @@ Par (run_f, run_g);
     match !res_f, !res_g with
     | Some fv, Some gv -> fv, gv
-    | _ -> failwith "ForkJoin.par: results not set"
+    | _ ->
+      log "ForkJoin.par: results not set";
+      failwith "error"
 
   type continuation_wrap = (unit -> unit) * (bool ref * bool ref)
 
   let has_work_done : continuation_wrap -> bool =
     fun (_, (l, r)) -> !l && !r
-  
+
   let scheduler : type a b. (a -> b) -> a -> b = fun main x ->
-    let work_queue : work Chan.t = Chan.make S.num_domains in
+    let work_queue : work Chan.t = Chan.make @@ 512 * S.num_domains in
     let continuation_stack : continuation_wrap Stack.t = Stack.make () 
     in
     let rec aux = fun f x ->
+      print_endline "aux called";
       begin match Stack.filter_pop continuation_stack has_work_done with
-        | None -> ()
+        | None ->
+          log "aux: no work done for continuation";
+          ()
         | Some (k, _) ->
+          log "aux: work done for continuation!";
           Chan.send work_queue (aux k)
           (*todo: is it really not needed to return result here..
             * thought: the continuation returns to evaluating the function that called 'par'
@@ -169,8 +192,11 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
           *)
       end;
       begin match f x with
-        | () -> ()
+        | () ->
+          log "aux: f x returned!";
+          ()
         | effect (Par (work, work')) k ->
+          log "aux: Par performed";
           let l_done = ref false in
           let r_done = ref false in
           let set_done f r () = let v = f () in r := true; v in
@@ -179,11 +205,15 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
           let continuation_wrap =
             let c = fun () -> continue k () |> ignore in
             (c, (l_done, r_done)) in
-          Stack.push continuation_stack continuation_wrap
+          Stack.push continuation_stack continuation_wrap;
+          log "aux: DONE pushing on stack"
       end
     in
-    let rec worker () = Chan.recv work_queue (); worker () in
-    (*< todo think about number again*)
+    let rec worker () =
+      log "worker entered";
+      Chan.recv work_queue ();
+      log "worker done work";
+      worker () in
     let domains : unit Domain.t array =
       Array.init S.num_domains (fun _ -> Domain.spawn worker) in
     let result = ref None in
@@ -198,7 +228,7 @@ end
 
 let mk_bvh f all_objs =
   let module ForkJoin = MakeForkJoin(struct
-    let num_domains = 8
+    let num_domains = (* 8 *) 1
   end) in
   (*<todo num-domains*)
   let rec mk d n xs =
