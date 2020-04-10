@@ -127,18 +127,18 @@ module Stack = struct
           match old_stack with
           | head :: new_stack ->
             if not (p head) then (
+              log "Stack.filter_pop: stack non-empty, but (p head) = false";
               result := None;
               true
             ) else (
+              log "Stack.filter_pop: stack non-empty, and (p head) = true";
               result := Some head;
               Atomic.compare_and_set s old_stack new_stack
             )
           | [] ->
+            log "Stack.filter_pop: stack empty";
             result := None;
             true
-          | _ ->
-            Domain.Sync.wait_for nanos |> ignore;
-            false
         )
       in
       if success then !result else aux ()
@@ -200,8 +200,8 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
           let l_done = ref false in
           let r_done = ref false in
           let set_done f r () = let v = f () in r := true; v in
-          Chan.send work_queue (aux (set_done work  l_done));
-          Chan.send work_queue (aux (set_done work' r_done));
+          Chan.send work_queue (set_done (aux work)  l_done);
+          Chan.send work_queue (set_done (aux work') r_done);
           let continuation_wrap =
             let c = fun () -> continue k () |> ignore in
             (c, (l_done, r_done)) in
