@@ -200,10 +200,17 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     in
     let rec worker () =
       log "worker entered";
+      (*> todo could potentially take continuation-work from inside stack, 
+          .. but only for performance via more parallelization potential*)
       begin match Stack.filter_pop continuation_stack has_work_done with
         | None ->
-          log "worker: no dep-work done for continuation - taking new work instead";
-          par_handler (Chan.recv work_queue) (); (*todo blocks when there is no more work *)
+          log "worker: no dep-work done for continuation (or empty) - taking new work instead";
+          par_handler (Chan.recv work_queue) ();
+          (*< todo blocks when there is no more work 
+              < could check if there is any work 'on its way' or 'in queue' 
+                < e.g. via a counter incremented on work-push
+                < or better.. just check if is empty (but need addition to interface for that)
+          *)
           log "worker: done work from work-queue";
           worker () 
         | Some (k, _) ->
@@ -227,7 +234,7 @@ end
 
 let mk_bvh f all_objs =
   let module ForkJoin = MakeForkJoin(struct
-    let num_domains = (* 8 *) 1
+    let num_domains = 8
   end) in
   (*<todo num-domains*)
   let rec mk d n xs =
