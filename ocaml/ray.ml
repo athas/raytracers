@@ -174,11 +174,14 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     fun (_, (l, r)) -> !l && !r
 
   let scheduler : type a b. (a -> b) -> a -> b = fun main x ->
+    (* let test_done = ref false in (\*todo*\) *)
+
     let work_queue : work Chan.t = Chan.make @@ 512 * S.num_domains in
     let continuation_stack : continuation_wrap Stack.t = Stack.make () 
     in
     let rec aux = fun f x ->
-      print_endline "aux called";
+      log "aux called";
+      (* log (Printf.sprintf "test_done = %b" !test_done); *)
       begin match Stack.filter_pop continuation_stack has_work_done with
         | None ->
           log "aux: no work done for continuation";
@@ -211,9 +214,14 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     in
     let rec worker () =
       log "worker entered";
-      Chan.recv work_queue ();
+      Chan.recv work_queue (); (*todo blocks when there is no more work *)
       log "worker done work";
       worker () in
+
+    (*todo debug*)
+    (* let set_done f r () = let v = f () in r := true; v in
+     * Chan.send work_queue (set_done (fun _ -> ()) test_done); *)
+      
     let domains : unit Domain.t array =
       Array.init S.num_domains (fun _ -> Domain.spawn worker) in
     let result = ref None in
