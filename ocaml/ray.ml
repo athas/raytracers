@@ -174,20 +174,18 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     fun (_, (l, r)) -> !l && !r
 
   let scheduler : type a b. (a -> b) -> a -> b = fun main x ->
-    (* let test_done = ref false in (\*todo*\) *)
-
-    let work_queue : work Chan.t = Chan.make @@ 512 * S.num_domains in
+    let work_queue : work Chan.t = Chan.make @@ 2048 * S.num_domains in
+    (*< todo problem: this number needs to be high to not block :/ (need unbounded queue)*)
     let continuation_stack : continuation_wrap Stack.t = Stack.make () 
     in
-    let aux f x = 
-      log "scheduler.aux called";
-      (* log (Printf.sprintf "test_done = %b" !test_done); *)
+    let par_handler f x = 
+      log "scheduler.par_handler called";
       begin match f x with
         | () ->
-          log "scheduler.aux: f x returned!";
+          log "scheduler.par_handler: f x returned!";
           ()
         | effect (Par (work, work')) k ->
-          log "scheduler.aux: Par performed";
+          log "scheduler.par_handler: Par performed";
           let l_done = ref false in
           let r_done = ref false in
           let set_done f r () = let v = f () in r := true; v in
@@ -197,7 +195,7 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
             let c = fun () -> continue k () |> ignore in
             (c, (l_done, r_done)) in
           Stack.push continuation_stack continuation_wrap;
-          log "scheduler.aux: DONE pushing continuation on stack"
+          log "scheduler.par_handler: DONE pushing continuation on stack"
       end
     in
     let rec worker () =
@@ -205,25 +203,21 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
       begin match Stack.filter_pop continuation_stack has_work_done with
         | None ->
           log "worker: no dep-work done for continuation - taking new work instead";
-          aux (Chan.recv work_queue) (); (*todo blocks when there is no more work *)
+          par_handler (Chan.recv work_queue) (); (*todo blocks when there is no more work *)
           log "worker: done work from work-queue";
           worker () 
         | Some (k, _) ->
           log "worker: dep-work done for continuation! - starting work";
-          aux k (); (*todo; where does result of the continuation go?*)
+          par_handler k (); (*todo; where does result of the continuation go?*)
           log "worker: done work from continuation";
           worker ()
       end
     in
-    (*todo debug*)
-    (* let set_done f r () = let v = f () in r := true; v in
-     * Chan.send work_queue (set_done (fun _ -> ()) test_done); *)
-      
     let domains : unit Domain.t array =
       Array.init S.num_domains (fun _ -> Domain.spawn worker) in
     let result = ref None in
     let main () = result := Some (main x) in
-    aux main ();
+    par_handler main ();
     Array.iter Domain.join domains;
     match !result with
     | Some v -> v
