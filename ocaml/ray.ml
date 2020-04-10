@@ -182,7 +182,7 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
           Stack.push continuation_stack continuation_wrap
       end
     in
-    let worker () = Chan.recv work_queue () in
+    let rec worker () = Chan.recv work_queue (); worker () in
     (*< todo think about number again*)
     let domains : unit Domain.t array =
       Array.init S.num_domains (fun _ -> Domain.spawn worker) in
