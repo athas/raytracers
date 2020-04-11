@@ -88,7 +88,11 @@ module type ForkJoinSpecs = sig
   val num_domains : int
 end
 
-let log s = Printf.printf "%s\n%!" s
+let sp = Printf.sprintf 
+
+let log ?id s =
+  let id_str = match id with None -> "" | Some id -> sp "Worker-%d: " id in
+  Printf.printf "%s%s\n%!" id_str s
 
 module Stack = struct
 
@@ -106,17 +110,19 @@ module Stack = struct
           let old_stack = Atomic.get s in
           let new_stack = v :: old_stack in
           Atomic.compare_and_set s old_stack new_stack
+            (* Domain.Sync.wait_for nanos |> ignore; *)
         )
       in
       if success then () else (
-        Domain.Sync.wait_for nanos |> ignore;
         aux ()
       )
     in
     aux ()
 
-  let filter_pop : 'a t -> ('a -> bool) -> 'a option = fun s p ->
-    print_endline "filter_pop entered";
+  let filter_pop : ?id:int -> 'a t -> ('a -> bool) -> 'a option = fun ?id s p ->
+    let log = match id with None -> (log:string -> unit) | Some id -> log ~id
+    in
+    log "filter_pop entered";
     let rec aux () =
       (* log "Stack.filter_pop.aux entered"; *)
       let result = ref None in
@@ -174,11 +180,15 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     fun (_, (l, r)) -> !l && !r
 
   let scheduler : type a b. (a -> b) -> a -> b = fun main x ->
-    let work_queue : work Chan.t = Chan.make @@ 2048 * S.num_domains in
+    let work_queue : work Chan.t = Chan.make @@ 10000 * S.num_domains in
     (*< todo problem: this number needs to be high to not block :/ (need unbounded queue)*)
-    let continuation_stack : continuation_wrap Stack.t = Stack.make () 
+    let continuation_stack : continuation_wrap Stack.t = Stack.make () in
+    let begun_continuation_eval = Atomic.make false 
+    (*< todo hack, as I know that this happens when work is done*)
     in
-    let par_handler f x = 
+    let par_handler ?id f x =
+      let log = match id with None -> (log:string -> unit) | Some id -> log ~id
+      in
       log "scheduler.par_handler called";
       begin match f x with
         | () ->
@@ -198,30 +208,36 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
           log "scheduler.par_handler: DONE pushing continuation on stack"
       end
     in
-    let rec worker () =
-      log "worker entered";
+    let rec worker id () =
+      log ~id "worker entered"; (*goo*)
       (*> todo could potentially take continuation-work from inside stack, 
           .. but only for performance via more parallelization potential*)
-      begin match Stack.filter_pop continuation_stack has_work_done with
+      begin match Stack.filter_pop ~id continuation_stack has_work_done with
         | None ->
-          log "worker: no dep-work done for continuation (or empty) - taking new work instead";
-          par_handler (Chan.recv work_queue) ();
-          (*< todo blocks when there is no more work 
-              < could check if there is any work 'on its way' or 'in queue' 
-                < e.g. via a counter incremented on work-push
-                < or better.. just check if is empty (but need addition to interface for that)
-          *)
-          log "worker: done work from work-queue";
-          worker () 
+          if Domain.Sync.critical_section (fun () -> Atomic.get begun_continuation_eval) then begin
+            log ~id "begun continuation eval + stack empty, so quitting";
+            ()
+          end else begin
+            log ~id "worker: no dep-work done for continuation (or empty) - taking new work instead";
+            par_handler ~id (Chan.recv work_queue) ();
+            (*< todo blocks when there is no more work 
+                < could check if there is any work 'on its way' or 'in queue' 
+                  < e.g. via a counter incremented on work-push
+                  < or better.. just check if is empty (but need addition to interface for that)
+            *)
+            log ~id "worker: done work from work-queue";
+            worker id ()
+          end
         | Some (k, _) ->
-          log "worker: dep-work done for continuation! - starting work";
-          par_handler k (); (*todo; where does result of the continuation go?*)
-          log "worker: done work from continuation";
-          worker ()
+          Domain.Sync.critical_section (fun () -> Atomic.set begun_continuation_eval true);
+          log ~id "worker: dep-work done for continuation! - starting work";
+          par_handler ~id k (); (*todo; where does result of the continuation go?*)
+          log ~id "worker: done work from continuation";
+          worker id ()
       end
     in
     let domains : unit Domain.t array =
-      Array.init S.num_domains (fun _ -> Domain.spawn worker) in
+      Array.init S.num_domains (fun i -> Domain.spawn (worker i)) in
     let result = ref None in
     let main () = result := Some (main x) in
     par_handler main ();
@@ -234,7 +250,7 @@ end
 
 let mk_bvh f all_objs =
   let module ForkJoin = MakeForkJoin(struct
-    let num_domains = 8
+    let num_domains = 2
   end) in
   (*<todo num-domains*)
   let rec mk d n xs =
