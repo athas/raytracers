@@ -162,9 +162,13 @@ end
 module MakeForkJoin(S:ForkJoinSpecs) = struct
 
   type work = unit -> unit
+
+  type work_msg = Work of work | Quit 
   
   effect Par : (work * work) -> unit
   
+  type continuation_wrap = (unit -> unit) * (bool ref * bool ref)
+
   let par : type a b. (unit -> a) * (unit -> b) -> (a * b) = fun (f, g) ->
     let res_f = ref None 
     and res_g = ref None in
@@ -177,13 +181,11 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
       log "ForkJoin.par: results not set";
       failwith "error"
 
-  type continuation_wrap = (unit -> unit) * (bool ref * bool ref)
-
   let has_work_done : continuation_wrap -> bool =
     fun (_, (l, r)) -> !l && !r
 
   let scheduler : type a b. (a -> b) -> a -> b = fun main x ->
-    let work_queue : work Chan.t = Chan.make @@ 10000 * S.num_domains in
+    let work_queue : work_msg Chan.t = Chan.make @@ 10000 * S.num_domains in
     (*< todo problem: this number needs to be high to not block :/ (need unbounded queue)*)
     let continuation_stack : continuation_wrap Stack.t = Stack.make () in
     let begun_continuation_eval = Atomic.make false 
@@ -202,8 +204,8 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
           let l_done = ref false in
           let r_done = ref false in
           let set_done f r () = let v = f () in r := true; v in
-          Chan.send work_queue (set_done work_l l_done);
-          Chan.send work_queue (set_done work_r r_done);
+          Chan.send work_queue @@ Work (set_done work_l l_done);
+          Chan.send work_queue @@ Work (set_done work_r r_done);
           let continuation_wrap =
             let c = fun () -> continue k () |> ignore in
             (c, (l_done, r_done)) in
@@ -220,22 +222,20 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
       *)
       begin match Stack.filter_pop ~id continuation_stack has_work_done with
         | None ->
-          (*> note: this is a hack, where we know that there will be no more 
-              work pushed after we begin evaluating continuations..*)
-          (* if Domain.Sync.critical_section (fun () -> Atomic.get begun_continuation_eval) then begin
-           *   log "begun continuation eval + stack empty, so quitting";
-           *   ()
-           * end else begin *)
-          log "worker: no dep-work done for continuation (or empty) - taking new work instead";
-          par_handler ~id (Chan.recv work_queue) ();
-          (*< todo blocks when there is no more work 
-              < could check if there is any work 'on its way' or 'in queue' 
-                < e.g. via a counter incremented on work-push
-                < or better.. just check if is empty (but need addition to interface for that)
-          *)
-          log "worker: done work from work-queue";
-          worker id ()
-        (* end *)
+          begin match Chan.recv work_queue with
+          | Quit -> ()
+          | Work work -> begin
+              log "worker: no dep-work done for continuation (or empty) - taking new work instead";
+              par_handler ~id work ();
+              (*< todo blocks when there is no more work 
+                  < could check if there is any work 'on its way' or 'in queue' 
+                    < e.g. via a counter incremented on work-push
+                    < or better.. just check if is empty (but need addition to interface for that)
+              *)
+              log "worker: done work from work-queue";
+              worker id ()
+            end
+          end
         | Some (k, _) ->
           Domain.Sync.critical_section (fun () -> Atomic.set begun_continuation_eval true);
           log "worker: dep-work done for continuation! - starting work";
@@ -249,7 +249,10 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     let result = ref None in
     let main () = result := Some (main x) in
     par_handler main ();
-    log "scheduler: main returned, joining domains";
+    (*todo why is main not done when it returns...*)
+    log "scheduler: main returned, sending quit to workers";
+    for _ = 1 to S.num_domains do Chan.send work_queue Quit done; 
+    log "scheduler: joining domains";
     Array.iter Domain.join domains;
     log "joined domains";
     match !result with
