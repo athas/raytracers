@@ -130,21 +130,24 @@ module Stack = struct
         Domain.Sync.critical_section (fun () ->
           (* print_endline "filter_pop aux entered"; *)
           let old_stack = Atomic.get s in
-          match old_stack with
-          | head :: new_stack ->
-            if not (p head) then (
-              log "Stack.filter_pop: stack non-empty, but (p head) = false";
-              result := None;
-              true
-            ) else (
-              log "Stack.filter_pop: stack non-empty, and (p head) = true";
-              result := Some head;
-              Atomic.compare_and_set s old_stack new_stack
-            )
-          | [] ->
+          let found_and_rest = List.fold_right (fun e acc ->
+            match acc with
+            | (Some _ as some), stack -> some, e :: stack
+            | None, stack -> if p e then (Some e, stack) else (None, e :: stack)
+          ) old_stack (None, []) in
+          match found_and_rest with
+          | None, [] ->
             log "Stack.filter_pop: stack empty";
             result := None;
             true
+          | None, _ :: _ ->
+            log "Stack.filter_pop: stack non-empty, but (p found) = false";
+            result := None;
+            true
+          | (Some _ as found), new_stack ->
+            log "Stack.filter_pop: stack non-empty, and (p found) = true";
+            result := found;
+            Atomic.compare_and_set s old_stack new_stack
         )
       in
       if success then !result else aux ()
@@ -194,13 +197,13 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
         | () ->
           log "scheduler.par_handler: f x returned!";
           ()
-        | effect (Par (work, work')) k ->
+        | effect (Par (work_l, work_r)) k ->
           log "scheduler.par_handler: Par performed";
           let l_done = ref false in
           let r_done = ref false in
           let set_done f r () = let v = f () in r := true; v in
-          Chan.send work_queue (set_done work  l_done);
-          Chan.send work_queue (set_done work' r_done);
+          Chan.send work_queue (set_done work_l l_done);
+          Chan.send work_queue (set_done work_r r_done);
           let continuation_wrap =
             let c = fun () -> continue k () |> ignore in
             (c, (l_done, r_done)) in
@@ -209,30 +212,35 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
       end
     in
     let rec worker id () =
-      log ~id "worker entered"; (*goo*)
+      let log = log ~id in
+      log "worker entered"; (*goo*)
       (*> todo could potentially take continuation-work from inside stack, 
-          .. but only for performance via more parallelization potential*)
+          .. but only for performance via more parallelization potential
+          > could change filter_pop semantics to take first one that matches p
+      *)
       begin match Stack.filter_pop ~id continuation_stack has_work_done with
         | None ->
-          if Domain.Sync.critical_section (fun () -> Atomic.get begun_continuation_eval) then begin
-            log ~id "begun continuation eval + stack empty, so quitting";
-            ()
-          end else begin
-            log ~id "worker: no dep-work done for continuation (or empty) - taking new work instead";
-            par_handler ~id (Chan.recv work_queue) ();
-            (*< todo blocks when there is no more work 
-                < could check if there is any work 'on its way' or 'in queue' 
-                  < e.g. via a counter incremented on work-push
-                  < or better.. just check if is empty (but need addition to interface for that)
-            *)
-            log ~id "worker: done work from work-queue";
-            worker id ()
-          end
+          (*> note: this is a hack, where we know that there will be no more 
+              work pushed after we begin evaluating continuations..*)
+          (* if Domain.Sync.critical_section (fun () -> Atomic.get begun_continuation_eval) then begin
+           *   log "begun continuation eval + stack empty, so quitting";
+           *   ()
+           * end else begin *)
+          log "worker: no dep-work done for continuation (or empty) - taking new work instead";
+          par_handler ~id (Chan.recv work_queue) ();
+          (*< todo blocks when there is no more work 
+              < could check if there is any work 'on its way' or 'in queue' 
+                < e.g. via a counter incremented on work-push
+                < or better.. just check if is empty (but need addition to interface for that)
+          *)
+          log "worker: done work from work-queue";
+          worker id ()
+        (* end *)
         | Some (k, _) ->
           Domain.Sync.critical_section (fun () -> Atomic.set begun_continuation_eval true);
-          log ~id "worker: dep-work done for continuation! - starting work";
+          log "worker: dep-work done for continuation! - starting work";
           par_handler ~id k (); (*todo; where does result of the continuation go?*)
-          log ~id "worker: done work from continuation";
+          log "worker: done work from continuation";
           worker id ()
       end
     in
@@ -241,7 +249,9 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     let result = ref None in
     let main () = result := Some (main x) in
     par_handler main ();
+    log "scheduler: main returned, joining domains";
     Array.iter Domain.join domains;
+    log "joined domains";
     match !result with
     | Some v -> v
     | None -> failwith "ForkJoin.scheduler: result not set"
@@ -250,7 +260,7 @@ end
 
 let mk_bvh f all_objs =
   let module ForkJoin = MakeForkJoin(struct
-    let num_domains = 2
+    let num_domains = 8
   end) in
   (*<todo num-domains*)
   let rec mk d n xs =
@@ -278,8 +288,7 @@ let mk_bvh f all_objs =
       let box = enclosing (bvh_aabb left) (bvh_aabb right)
       in Bvh_split (box, left, right)
   in
-  ForkJoin.scheduler
-    (fun () -> mk 0 (List.length all_objs) all_objs) ()
+  ForkJoin.scheduler (mk 0 (List.length all_objs)) all_objs
 
 type pos = vec3
 type dir = vec3
