@@ -96,6 +96,8 @@ let log ?id s =
 
 module Stack = struct
 
+  let log ?id s = () (*.. alternative to debug-print flag*)
+  
   type 'a t = 'a list Atomic.t
 
   let make : unit -> 'a t = fun () -> Atomic.make []
@@ -120,15 +122,12 @@ module Stack = struct
     aux ()
 
   let filter_pop : ?id:int -> 'a t -> ('a -> bool) -> 'a option = fun ?id s p ->
-    let log = match id with None -> (log:string -> unit) | Some id -> log ~id
-    in
+    let log = match id with None -> (log:string -> unit) | Some id -> log ~id in
     log "filter_pop entered";
     let rec aux () =
-      (* log "Stack.filter_pop.aux entered"; *)
       let result = ref None in
       let success = 
         Domain.Sync.critical_section (fun () ->
-          (* print_endline "filter_pop aux entered"; *)
           let old_stack = Atomic.get s in
           let found_and_rest = List.fold_right (fun e acc ->
             match acc with
@@ -169,6 +168,8 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
   
   type continuation_wrap = (unit -> unit) * (bool ref * bool ref)
 
+  let log ?id s = () (*.. alternative to debug-print flag*)
+
   let par : type a b. (unit -> a) * (unit -> b) -> (a * b) = fun (f, g) ->
     let res_f = ref None 
     and res_g = ref None in
@@ -177,28 +178,27 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     perform @@ Par (run_f, run_g);
     match !res_f, !res_g with
     | Some fv, Some gv -> fv, gv
-    | _ ->
-      log "ForkJoin.par: results not set";
-      failwith "error"
+    | _ -> failwith "ForkJoin.par: results not set"
 
   let has_work_done : continuation_wrap -> bool =
     fun (_, (l, r)) -> !l && !r
 
   let scheduler : type a b. (a -> b) -> a -> b = fun main x ->
-    let work_queue : work_msg Chan.t = Chan.make @@ 10000 * S.num_domains in
-    (*< todo problem: this number needs to be high to not block :/ (need unbounded queue)*)
-    let continuation_stack : continuation_wrap Stack.t = Stack.make () in
-    let begun_continuation_eval = Atomic.make false 
-    (*< todo hack, as I know that this happens when work is done*)
+    let work_queue : work_msg Chan.t = Chan.make 10000000 (* * S.num_domains*) in
+    (*< todo problem: this number needs to be high to not block :/ (need unbounded queue?)*)
+    let continuation_stack : continuation_wrap Stack.t = Stack.make ()
     in
-    let par_handler ?id f x =
+    let par_handler ?done_mvar ?id f x =
       let log = match id with None -> (log:string -> unit) | Some id -> log ~id
+      and send_done () = match done_mvar with
+        | Some done_mvar -> Chan.send done_mvar ()
+        | None -> ()
       in
       log "scheduler.par_handler called";
       begin match f x with
         | () ->
           log "scheduler.par_handler: f x returned!";
-          ()
+          send_done ()
         | effect (Par (work_l, work_r)) k ->
           log "scheduler.par_handler: Par performed";
           let l_done = ref false in
@@ -207,7 +207,10 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
           Chan.send work_queue @@ Work (set_done work_l l_done);
           Chan.send work_queue @@ Work (set_done work_r r_done);
           let continuation_wrap =
-            let c = fun () -> continue k () |> ignore in
+            let c = fun () ->
+              ignore (continue k ());
+              send_done ()
+            in
             (c, (l_done, r_done)) in
           Stack.push continuation_stack continuation_wrap;
           log "scheduler.par_handler: DONE pushing continuation on stack"
@@ -215,31 +218,24 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
     in
     let rec worker id () =
       let log = log ~id in
-      log "worker entered"; (*goo*)
-      (*> todo could potentially take continuation-work from inside stack, 
-          .. but only for performance via more parallelization potential
-          > could change filter_pop semantics to take first one that matches p
-      *)
+      log "worker entered"; 
       begin match Stack.filter_pop ~id continuation_stack has_work_done with
         | None ->
           begin match Chan.recv work_queue with
-          | Quit -> ()
-          | Work work -> begin
-              log "worker: no dep-work done for continuation (or empty) - taking new work instead";
-              par_handler ~id work ();
-              (*< todo blocks when there is no more work 
-                  < could check if there is any work 'on its way' or 'in queue' 
-                    < e.g. via a counter incremented on work-push
-                    < or better.. just check if is empty (but need addition to interface for that)
-              *)
-              log "worker: done work from work-queue";
-              worker id ()
-            end
+            | Quit ->
+              log "worker: received Quit";
+              ()
+            | Work work -> begin
+                log "worker: no dep-work done for continuation (or empty) - taking new work instead";
+                par_handler ~id work ();
+                log "worker: done work from work-queue";
+                worker id ()
+              end
           end
         | Some (k, _) ->
-          Domain.Sync.critical_section (fun () -> Atomic.set begun_continuation_eval true);
           log "worker: dep-work done for continuation! - starting work";
-          par_handler ~id k (); (*todo; where does result of the continuation go?*)
+          par_handler ~id k ();
+          (*< todo think; where does result of the continuation go?, and what is it anyway..*)
           log "worker: done work from continuation";
           worker id ()
       end
@@ -248,8 +244,9 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
       Array.init S.num_domains (fun i -> Domain.spawn (worker i)) in
     let result = ref None in
     let main () = result := Some (main x) in
-    par_handler main ();
-    (*todo why is main not done when it returns...*)
+    let done_mvar = Chan.make 1 in
+    par_handler ~done_mvar main ();
+    Chan.recv done_mvar;
     log "scheduler: main returned, sending quit to workers";
     for _ = 1 to S.num_domains do Chan.send work_queue Quit done; 
     log "scheduler: joining domains";
@@ -261,11 +258,8 @@ module MakeForkJoin(S:ForkJoinSpecs) = struct
   
 end
 
-let mk_bvh f all_objs =
-  let module ForkJoin = MakeForkJoin(struct
-    let num_domains = 8
-  end) in
-  (*<todo num-domains*)
+let mk_bvh ~num_domains f all_objs =
+  let module ForkJoin = MakeForkJoin(struct let num_domains = num_domains end) in
   let rec mk d n xs =
     match xs with
     | [] -> failwith "mk_bvh: no nodes"
@@ -291,7 +285,7 @@ let mk_bvh f all_objs =
       let box = enclosing (bvh_aabb left) (bvh_aabb right)
       in Bvh_split (box, left, right)
   in
-  ForkJoin.scheduler (mk 0 (List.length all_objs)) all_objs
+  ForkJoin.scheduler (fun () -> mk 0 (List.length all_objs) all_objs) ()
 
 type pos = vec3
 type dir = vec3
@@ -560,8 +554,8 @@ type scene = {
   spheres : sphere list;
 }
 
-let from_scene width height (scene: scene) : objs * camera =
-  (mk_bvh sphere_aabb scene.spheres,
+let from_scene ~num_domains width height (scene: scene) : objs * camera =
+  (mk_bvh ~num_domains sphere_aabb scene.spheres,
    camera scene.look_from scene.look_at {x=0.0; y=1.0; z=0.0}
      scene.fov (float width /. float height))
 
@@ -717,15 +711,17 @@ let () =
     | "rgbbox" -> rgbbox
     | "irreg" -> irreg
     | s -> failwith ("No such scene: " ^ s) in
-  let _ = Printf.printf "Using scene '%s' (-s to switch).\n" scene_name in
+  log @@ sp "Using scene '%s' (-s to switch).\n" scene_name;
   (*Note: Unix module was not implemented in Multicore OCaml, 
     .. and Sys.time times all threads time accumulated?*)
 
+  log "BVH construction";
   let t = seconds() in
-  let (objs, cam) = from_scene width height scene in
+  let (objs, cam) = from_scene ~num_domains width height scene in
   let t' = seconds() in
-  let _ = Printf.printf "Scene BVH construction in %fs.\n" (t' -. t) in
+  log @@ sp "Scene BVH construction in %fs.\n" (t' -. t);
 
+  log "rendering";
   let t = seconds() in
   let result =
     render
@@ -733,13 +729,13 @@ let () =
       ~objs ~width ~height ~cam
   in
   let t' = seconds() in
-  let _ = Printf.printf "Rendering in %fs.\n" (t' -. t) in
+  log @@ sp "Rendering in %fs.\n" (t' -. t);
 
   match imgfile with
   | None ->
-    Printf.printf "-f not passed, so not writing image to file.\n"
+    log "-f not passed, so not writing image to file.\n"
   | Some imgfile' ->
-    Printf.printf "Writing image to %s.\n" imgfile';
+    log @@ sp "Writing image to %s.\n" imgfile';
     let out_channel = open_out imgfile' in
     image2ppm result |> output_string out_channel;
     flush out_channel;
