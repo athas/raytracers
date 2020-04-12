@@ -65,9 +65,7 @@ here.  The code is readable, written in a completely natural style,
 and performance is excellent.
 
 Multicore OCaml is also quite fast, and the code is likewise very
-clean.  While Multicore OCaml depends on an algebraic effect system,
-that can apparently all be hidden away behind higher-level
-abstractions.
+clean.
 
 While Futhark is fast, the code is significantly longer and more
 complex.  This is particularly because of the BVH construction.  In
