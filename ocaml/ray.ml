@@ -6,16 +6,10 @@ type vec3 = {
   z : float;
 }
 
-let vf f (v1: vec3) (v2: vec3) = {
-  x = f v1.x v2.x;
-  y = f v1.y v2.y;
-  z = f v1.z v2.z
-}
-
-let vec_add = vf (+.)
-let vec_sub = vf (-.)
-let vec_mul = vf ( *. )
-let vec_div = vf (/.)
+let vec_add (v1: vec3) (v2: vec3) = { x = v1.x +. v2.x; y = v1.y +. v2.y; z = v1.z +. v2.z }
+let vec_sub (v1: vec3) (v2: vec3) = { x = v1.x -. v2.x; y = v1.y -. v2.y; z = v1.z -. v2.z }
+let vec_mul (v1: vec3) (v2: vec3) = { x = v1.x *. v2.x; y = v1.y *. v2.y; z = v1.z *. v2.z }
+let vec_div (v1: vec3) (v2: vec3) = { x = v1.x /. v2.x; y = v1.y /. v2.y; z = v1.z /. v2.z }
 
 let scale s v : vec3 = {
   x = s *. v.x;
