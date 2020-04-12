@@ -175,7 +175,7 @@ let aabb_hit aabb (r: ray) tmin0 tmax0 =
     let tmin'' = max (if invD < 0.0 then t1 else t0) tmin' in
     let tmax'' = min (if invD < 0.0 then t0 else t1) tmax' in
     (tmin'', tmax'')
-    [@@inline always]
+    [@@inline]
   in
   let (tmin1, tmax1) =
     iter aabb.min.x aabb.max.x r.origin.x r.dir.x tmin0 tmax0
