@@ -1,4 +1,4 @@
-module Chan = Domainslib.Chan
+module Task = Domainslib.Task
 
 type vec3 = {
   x : float;
@@ -84,182 +84,13 @@ let rec split n xs =
     let (left, right) = split (n-1) xs'
     in (x::left, right)
 
-module type ForkJoinSpecs = sig
-  val num_domains : int
-end
-
-let sp = Printf.sprintf 
+let sp = Printf.sprintf
 
 let log ?id s =
   let id_str = match id with None -> "" | Some id -> sp "Worker-%d: " id in
   Printf.printf "%s%s\n%!" id_str s
 
-module Stack = struct
-
-  let log ?id s = () (*.. alternative to debug-print flag*)
-  
-  type 'a t = 'a list Atomic.t
-
-  let make : unit -> 'a t = fun () -> Atomic.make []
-
-  let nanos = Int64.of_int @@ 0 (*todo play with this*)
-
-  let push : 'a t -> 'a -> unit = fun s v ->
-    let rec aux () =
-      log "Stack.push.aux entered";
-      let success = 
-        Domain.Sync.critical_section (fun () ->
-          let old_stack = Atomic.get s in
-          let new_stack = v :: old_stack in
-          Atomic.compare_and_set s old_stack new_stack
-            (* Domain.Sync.wait_for nanos |> ignore; *)
-        )
-      in
-      if success then () else (
-        aux ()
-      )
-    in
-    aux ()
-
-  let filter_pop : ?id:int -> 'a t -> ('a -> bool) -> 'a option = fun ?id s p ->
-    let log = match id with None -> (log:string -> unit) | Some id -> log ~id in
-    log "filter_pop entered";
-    let rec aux () =
-      let result = ref None in
-      let success = 
-        Domain.Sync.critical_section (fun () ->
-          let old_stack = Atomic.get s in
-          let found_and_rest = List.fold_right (fun e acc ->
-            match acc with
-            | (Some _ as some), stack -> some, e :: stack
-            | None, stack -> if p e then (Some e, stack) else (None, e :: stack)
-          ) old_stack (None, []) in
-          match found_and_rest with
-          | None, [] ->
-            log "Stack.filter_pop: stack empty";
-            result := None;
-            true
-          | None, _ :: _ ->
-            log "Stack.filter_pop: stack non-empty, but (p found) = false";
-            result := None;
-            true
-          | (Some _ as found), new_stack ->
-            log "Stack.filter_pop: stack non-empty, and (p found) = true";
-            result := found;
-            Atomic.compare_and_set s old_stack new_stack
-        )
-      in
-      if success then !result else aux ()
-    in
-    aux ()
-
-  let is_empty : 'a t -> bool = fun s ->
-    match filter_pop s (fun _ -> true) with None -> true | _ -> false
-
-end
-
-module MakeForkJoin(S:ForkJoinSpecs) = struct
-
-  type work = unit -> unit
-
-  type work_msg = Work of work | Quit 
-  
-  effect Par : (work * work) -> unit
-  
-  type continuation_wrap = (unit -> unit) * (bool ref * bool ref)
-
-  let log ?id s = () (*.. alternative to debug-print flag*)
-
-  let par : type a b. (unit -> a) * (unit -> b) -> (a * b) = fun (f, g) ->
-    let res_f = ref None 
-    and res_g = ref None in
-    let run_f () = res_f := Some (f ())
-    and run_g () = res_g := Some (g ()) in
-    perform @@ Par (run_f, run_g);
-    match !res_f, !res_g with
-    | Some fv, Some gv -> fv, gv
-    | _ -> failwith "ForkJoin.par: results not set"
-
-  let has_work_done : continuation_wrap -> bool =
-    fun (_, (l, r)) -> !l && !r
-
-  let scheduler : type a b. (a -> b) -> a -> b = fun main x ->
-    let work_queue : work_msg Chan.t = Chan.make 10000000 (* * S.num_domains*) in
-    (*< todo problem: this number needs to be high to not block :/ (need unbounded queue?)*)
-    let continuation_stack : continuation_wrap Stack.t = Stack.make ()
-    in
-    let par_handler ?done_mvar ?id f x =
-      let log = match id with None -> (log:string -> unit) | Some id -> log ~id
-      and send_done () = match done_mvar with
-        | Some done_mvar -> Chan.send done_mvar ()
-        | None -> ()
-      in
-      log "scheduler.par_handler called";
-      begin match f x with
-        | () ->
-          log "scheduler.par_handler: f x returned!";
-          send_done ()
-        | effect (Par (work_l, work_r)) k ->
-          log "scheduler.par_handler: Par performed";
-          let l_done = ref false in
-          let r_done = ref false in
-          let set_done f r () = let v = f () in r := true; v in
-          Chan.send work_queue @@ Work (set_done work_l l_done);
-          Chan.send work_queue @@ Work (set_done work_r r_done);
-          let continuation_wrap =
-            let c = fun () ->
-              ignore (continue k ());
-              send_done ()
-            in
-            (c, (l_done, r_done)) in
-          Stack.push continuation_stack continuation_wrap;
-          log "scheduler.par_handler: DONE pushing continuation on stack"
-      end
-    in
-    let rec worker id () =
-      let log = log ~id in
-      log "worker entered"; 
-      begin match Stack.filter_pop ~id continuation_stack has_work_done with
-        | None ->
-          begin match Chan.recv work_queue with
-            | Quit ->
-              log "worker: received Quit";
-              ()
-            | Work work -> begin
-                log "worker: no dep-work done for continuation (or empty) - taking new work instead";
-                par_handler ~id work ();
-                log "worker: done work from work-queue";
-                worker id ()
-              end
-          end
-        | Some (k, _) ->
-          log "worker: dep-work done for continuation! - starting work";
-          par_handler ~id k ();
-          (*< todo think; where does result of the continuation go?, and what is it anyway..*)
-          log "worker: done work from continuation";
-          worker id ()
-      end
-    in
-    let domains : unit Domain.t array =
-      Array.init S.num_domains (fun i -> Domain.spawn (worker i)) in
-    let result = ref None in
-    let main () = result := Some (main x) in
-    let done_mvar = Chan.make 1 in
-    par_handler ~done_mvar main ();
-    Chan.recv done_mvar;
-    log "scheduler: main returned, sending quit to workers";
-    for _ = 1 to S.num_domains do Chan.send work_queue Quit done; 
-    log "scheduler: joining domains";
-    Array.iter Domain.join domains;
-    log "joined domains";
-    match !result with
-    | Some v -> v
-    | None -> failwith "ForkJoin.scheduler: result not set"
-  
-end
-
-let mk_bvh ~num_domains f all_objs =
-  let module ForkJoin = MakeForkJoin(struct let num_domains = num_domains end) in
+let mk_bvh ~pool f all_objs =
   let rec mk d n xs =
     match xs with
     | [] -> failwith "mk_bvh: no nodes"
@@ -280,12 +111,15 @@ let mk_bvh ~num_domains f all_objs =
       let (left, right) =
         if n < 100
         then (do_left(), do_right())
-        else ForkJoin.par (do_left, do_right)
+        else
+          let l = Task.async pool do_left in
+          let r = Task.async pool do_right in
+          (Task.await pool l, Task.await pool r)
       in
       let box = enclosing (bvh_aabb left) (bvh_aabb right)
       in Bvh_split (box, left, right)
   in
-  ForkJoin.scheduler (fun () -> mk 0 (List.length all_objs) all_objs) ()
+  mk 0 (List.length all_objs) all_objs
 
 type pos = vec3
 type dir = vec3
@@ -394,7 +228,7 @@ let camera lookfrom lookat vup vfov aspect =
   let origin = lookfrom in
   let w = normalise (vec_sub lookfrom lookat) in
   let u = normalise (cross vup w) in
-  let v = cross w u 
+  let v = cross w u
   in
   { origin = lookfrom;
     llc = vec_sub
@@ -419,7 +253,7 @@ let reflect v n =
 
 let scatter (r: ray) (hit: hit) =
   let reflected = reflect (normalise r.dir) hit.normal in
-  let scattered = {origin = hit.p; dir = reflected} 
+  let scattered = {origin = hit.p; dir = reflected}
   in
   if dot scattered.dir hit.normal > 0.0
   then Some (scattered, hit.colour)
@@ -443,7 +277,7 @@ let rec ray_colour objs r depth =
 let trace_ray objs width height cam j i : colour =
   let u = float i /. float width in
   let v = float j /. float height in
-  let ray = get_ray cam u v 
+  let ray = get_ray cam u v
   in ray_colour objs ray 0
 
 type pixel = int * int * int
@@ -451,7 +285,7 @@ type pixel = int * int * int
 let colour_to_pixel p =
   let ir = int_of_float (255.99 *. p.x) in
   let ig = int_of_float (255.99 *. p.y) in
-  let ib = int_of_float (255.99 *. p.z) 
+  let ib = int_of_float (255.99 *. p.z)
   in (ir, ig, ib)
 
 type image = {
@@ -462,9 +296,9 @@ type image = {
 
 let sp = Printf.sprintf
 
-let image2ppm : image -> string = fun image -> 
+let image2ppm : image -> string = fun image ->
   let on_pixel acc (r, g, b) = sp "%d %d %d\n" r g b :: acc in
-  String.concat "" @@ List.rev_append (*< is tailrec in contrast with 'flatten'*) 
+  String.concat "" @@ List.rev_append (*< is tailrec in contrast with 'flatten'*)
     (List.rev [
       "P3\n";
       sp "%d %d\n" image.width image.height;
@@ -472,75 +306,15 @@ let image2ppm : image -> string = fun image ->
     ])
     (image.pixels |> Array.to_list |> List.fold_left on_pixel [] |> List.rev)
 
-module Workers = struct 
-
-  (** Helpers for managing domain workers, derived from the following Multicore 
-      OCaml benchmark:
-      https://github.com/ocaml-bench/sandmark/blob/master/benchmarks/multicore-grammatrix/grammatrix_multicore.ml
-  *)
-
-  module StaticInput = struct 
-  
-    type message =
-      | Work of int (*start*) * int (*stop*)
-      | Quit
-
-    let create_work_queue ~n ~chunk_size ~num_domains =
-      Chan.make (
-        n / chunk_size +
-        1 + (*remaining work*)
-        num_domains (*quit messages*)
-      )    
-
-    let create_work ~n ~num_domains ~chunk_size =
-      let chan = create_work_queue ~n ~chunk_size ~num_domains in
-      let rec aux ~start ~left = 
-        if left < chunk_size then begin
-          Chan.send chan (Work (start, start + left - 1));
-          for _i = 1 to num_domains do
-            Chan.send chan Quit
-          done
-        end else begin
-          Chan.send chan (Work (start, start + chunk_size - 1));
-          aux ~start:(start + chunk_size) ~left:(left - chunk_size)
-        end
-      in
-      aux ~start:0 ~left:n;
-      chan
-
-    let rec worker ~f ~input ~output ~work_queue =
-      match Chan.recv work_queue with
-      | Work (start, stop) ->
-        f ~input ~output ~start ~stop;
-        worker ~f ~input ~output ~work_queue
-      | Quit -> ()
-
-  end
-
-end
-
-let render ~objs ~width ~height ~cam ~num_domains ~chunk_size =
-  let pixel l =
-    let i = l mod width in
-    let j = height - l / width 
-    in colour_to_pixel (trace_ray objs width height cam j i)
-  in
-  let pixel_work ~input ~output ~start ~stop =
-    for i = start to stop do output.(i) <- pixel i done
-  in
+let render ~objs ~width ~height ~cam ~pool ~chunk_size =
   let n = height * width in
   let output = Array.make n (0, 0, 0) in
-  let module W = Workers.StaticInput in
-  begin
-    let work_queue = W.create_work ~n ~num_domains ~chunk_size in
-    let domains =
-      Array.init (num_domains - 1) (fun _ ->
-        Domain.spawn
-          (fun _ -> W.worker ~f:pixel_work ~input:() ~output ~work_queue))
-    in
-    W.worker ~f:pixel_work ~input ~output ~work_queue;
-    Array.iter Domain.join domains;
-  end;
+  let pixel l =
+    let i = l mod width in
+    let j = height - l / width in
+    output.(l) <- colour_to_pixel (trace_ray objs width height cam j i)
+  in
+  Task.parallel_for pool ~chunk_size ~start:0 ~finish:(n-1) ~body:pixel;
   {
     width;
     height;
@@ -554,13 +328,13 @@ type scene = {
   spheres : sphere list;
 }
 
-let from_scene ~num_domains width height (scene: scene) : objs * camera =
-  (mk_bvh ~num_domains sphere_aabb scene.spheres,
+let from_scene ~pool width height (scene: scene) : objs * camera =
+  (mk_bvh ~pool sphere_aabb scene.spheres,
    camera scene.look_from scene.look_at {x=0.0; y=1.0; z=0.0}
      scene.fov (float width /. float height))
 
 (*taken from a later OCaml version*)
-module Seq = struct 
+module Seq = struct
 
   type +'a node =
     | Nil
@@ -569,7 +343,7 @@ module Seq = struct
   and 'a t = unit -> 'a node
 
   let empty () = Nil
-  
+
   let rec map f seq () = match seq() with
     | Nil -> Nil
     | Cons (x, next) -> Cons (f x, map f next)
@@ -626,7 +400,7 @@ let tabulate_2d m n f =
 
 let rgbbox : scene =
   let n = 10 in
-  let k = 60.0 
+  let k = 60.0
   in
   let leftwall =
     tabulate_2d n n (fun (y, z) ->
@@ -712,12 +486,13 @@ let () =
     | "irreg" -> irreg
     | s -> failwith ("No such scene: " ^ s) in
   log @@ sp "Using scene '%s' (-s to switch).\n" scene_name;
-  (*Note: Unix module was not implemented in Multicore OCaml, 
+  (*Note: Unix module was not implemented in Multicore OCaml,
     .. and Sys.time times all threads time accumulated?*)
 
+  let pool = Task.setup_pool (num_domains - 1) in
   log "BVH construction";
   let t = seconds() in
-  let (objs, cam) = from_scene ~num_domains width height scene in
+  let (objs, cam) = from_scene ~pool width height scene in
   let t' = seconds() in
   log @@ sp "Scene BVH construction in %fs.\n" (t' -. t);
 
@@ -725,11 +500,12 @@ let () =
   let t = seconds() in
   let result =
     render
-      ~num_domains ~chunk_size:chunk_size_render
+      ~pool ~chunk_size:chunk_size_render
       ~objs ~width ~height ~cam
   in
   let t' = seconds() in
   log @@ sp "Rendering in %fs.\n" (t' -. t);
+  Task.teardown_pool pool;
 
   match imgfile with
   | None ->
