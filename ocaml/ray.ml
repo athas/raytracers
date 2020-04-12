@@ -182,6 +182,7 @@ let aabb_hit aabb (r: ray) tmin0 tmax0 =
     let tmin'' = max t0' tmin' in
     let tmax'' = min t1' tmax' in
     (tmin'', tmax'')
+    [@@inline]
   in
   let (tmin1, tmax1) =
     iter aabb.min.x aabb.max.x r.origin.x r.dir.x tmin0 tmax0
