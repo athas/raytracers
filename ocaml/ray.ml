@@ -6,16 +6,10 @@ type vec3 = {
   z : float;
 }
 
-let vf f (v1: vec3) (v2: vec3) = {
-  x = f v1.x v2.x;
-  y = f v1.y v2.y;
-  z = f v1.z v2.z
-}
-
-let vec_add = vf (+.)
-let vec_sub = vf (-.)
-let vec_mul = vf ( *. )
-let vec_div = vf (/.)
+let vec_add (v1: vec3) (v2: vec3) = { x = v1.x +. v2.x; y = v1.y +. v2.y; z = v1.z +. v2.z }
+let vec_sub (v1: vec3) (v2: vec3) = { x = v1.x -. v2.x; y = v1.y -. v2.y; z = v1.z -. v2.z }
+let vec_mul (v1: vec3) (v2: vec3) = { x = v1.x *. v2.x; y = v1.y *. v2.y; z = v1.z *. v2.z }
+let vec_div (v1: vec3) (v2: vec3) = { x = v1.x /. v2.x; y = v1.y /. v2.y; z = v1.z /. v2.z }
 
 let scale s v : vec3 = {
   x = s *. v.x;
@@ -178,9 +172,8 @@ let aabb_hit aabb (r: ray) tmin0 tmax0 =
     let invD = 1.0 /. dir' in
     let t0 = (min' -. origin') *. invD in
     let t1 = (max' -. origin') *. invD in
-    let (t0', t1') = if invD < 0.0 then (t1, t0) else (t0, t1) in
-    let tmin'' = max t0' tmin' in
-    let tmax'' = min t1' tmax' in
+    let tmin'' = max (if invD < 0.0 then t1 else t0) tmin' in
+    let tmax'' = min (if invD < 0.0 then t0 else t1) tmax' in
     (tmin'', tmax'')
     [@@inline]
   in
