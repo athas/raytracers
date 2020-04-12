@@ -64,9 +64,10 @@ MPL (which is a parallelism-oriented fork of
 here.  The code is readable, written in a completely natural style,
 and performance is excellent.
 
-Multicore OCaml is quite fast, except for BVH construction on the
-`irreg` scene.  It required more hand-tweaking to run fast than the
-other implementations, but it seems to have paid off.
+Multicore OCaml is also quite fast, and the code is likewise very
+clean.  While Multicore OCaml depends on an algebraic effect system,
+that can apparently all be hidden away behind higher-level
+abstractions.
 
 While Futhark is fast, the code is significantly longer and more
 complex.  This is particularly because of the BVH construction.  In
