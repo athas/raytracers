@@ -1,4 +1,5 @@
--- You do not need to modify this module.
+{-# LANGUAGE Strict #-}
+{-# LANGUAGE StrictData #-}
 module Vec3 (Vec3(..), scale, norm, normalise, cross, dot) where
 
 import Control.DeepSeq

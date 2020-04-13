@@ -1,3 +1,5 @@
+{-# LANGUAGE Strict #-}
+{-# LANGUAGE StrictData #-}
 module Raytracing
   ( Pos, Dir, Camera, mkCamera
   , Sphere(..), sphereAABB
