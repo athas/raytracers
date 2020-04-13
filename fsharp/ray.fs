@@ -1,402 +1,419 @@
 open System
 open System.Diagnostics
-open System.Threading
+open System.Text
 open System.Threading.Tasks
 
-type vec3 = {x: float
-             y: float
-             z: float }
+[<Struct>]
+type Vec3 =
+    { X: float
+      Y: float
+      Z: float }
 
-let vf f (v1: vec3) (v2: vec3) =
-    {x= f v1.x v2.x;
-     y= f v1.y v2.y;
-     z= f v1.z v2.z}
+let inline vecAdd v1 v2 =
+    { X = v1.X + v2.X
+      Y = v1.Y + v2.Y
+      Z = v1.Z + v2.Z }
+let inline vecSub v1 v2 =
+    { X = v1.X - v2.X
+      Y = v1.Y - v2.Y
+      Z = v1.Z - v2.Z }
+let inline vecMul v1 v2 =
+    { X = v1.X * v2.X
+      Y = v1.Y * v2.Y
+      Z = v1.Z * v2.Z }
+let inline vecDiv v1 v2 =
+    { X = v1.X / v2.X
+      Y = v1.Y / v2.Y
+      Z = v1.Z / v2.Z }
 
-let vec_add = vf (+)
-let vec_sub = vf (-)
-let vec_mul = vf (*)
-let vec_div = vf (/)
+let inline scale s v =
+    { X=s*v.X
+      Y=s*v.Y
+      Z=s*v.Z }
 
-let scale s v : vec3 =
-    { x=s*v.x
-    ; y=s*v.y
-    ; z=s*v.z }
+let inline dot v1 v2 =
+    let v3 = vecMul v1 v2
+    v3.X + v3.Y + v3.Z
 
-let dot (v1: vec3) (v2: vec3) =
-    let v3 = vec_mul v1 v2
-    in v3.x + v3.y + v3.z
+let inline norm v =
+    dot v v
+    |> sqrt
 
-let norm v = Math.Sqrt (dot v v)
+let inline normalise v =
+    scale (1.0 / norm v) v
 
-let normalise v = scale (1.0 / norm v) v
+let inline cross v1 v2 =
+    { X=v1.Y*v2.Z-v1.Z*v2.Y
+      Y=v1.Z*v2.X-v1.X*v2.Z
+      Z=v1.X*v2.Y-v1.Y*v2.X }
 
-let cross v1 v2 : vec3 =
-    { x=v1.y*v2.z-v1.z*v2.y
-    ; y=v1.z*v2.x-v1.x*v2.z
-    ; z=v1.x*v2.y-v1.y*v2.x }
+[<Struct>]
+type AABB =
+    { Min: Vec3
+      Max: Vec3 }
 
-type aabb = { min: vec3
-              max: vec3 }
+let inline enclosing box0 box1 =
+    let small =
+        { X = min box0.Min.X box1.Min.X
+          Y = min box0.Min.Y box1.Min.Y
+          Z = min box0.Min.Z box1.Min.Z }
 
-let min x y : float =
-    if x < y then x else y
+    let big =
+        { X = max box0.Max.X box1.Max.X
+          Y = max box0.Max.Y box1.Max.Y
+          Z = max box0.Max.Z box1.Max.Z }
 
-let max x y : float =
-    if x < y then y else x
+    { Min = small; Max = big }
 
-let enclosing (box0: aabb) (box1: aabb) =
-    let small = { x = min box0.min.x box1.min.x
-                ; y = min box0.min.y box1.min.y
-                ; z = min box0.min.z box1.min.z
-                }
-    let big = { x = max box0.max.x box1.max.x
-              ; y = max box0.max.y box1.max.y
-              ; z = max box0.max.z box1.max.z
-              }
-    in {min=small; max=big}
+let inline centre aabb =
+    { X = aabb.Min.X + aabb.Max.X - aabb.Min.X
+      Y = aabb.Min.Y + aabb.Max.Y - aabb.Min.Y
+      Z = aabb.Min.Z + aabb.Max.Z - aabb.Min.Z }
 
-let centre (aabb: aabb) =
-    { x = aabb.min.x + aabb.max.x - aabb.min.x
-    ; y = aabb.min.y + aabb.max.y - aabb.min.y
-    ; z = aabb.min.z + aabb.max.z - aabb.min.z
-    }
+type Bvh<'T> =
+    | BvhLeaf of AABB * 'T
+    | BvhSplit of AABB * Bvh<'T> * Bvh<'T>
 
-type 'a bvh =
-    | Bvh_leaf of aabb * 'a
-    | Bvh_split of aabb * bvh<'a> * bvh<'a>
-
-let bvh_aabb bvh =
+let inline BvhAABB bvh =
     match bvh with
-        | (Bvh_leaf (box, _)) -> box
-        | (Bvh_split (box, _, _)) -> box
+    | (BvhLeaf (box, _)) -> box
+    | (BvhSplit (box, _, _)) -> box
 
-let rec split n xs =
+let inline split n xs =
     match (n, xs) with
-        | (0, _) -> ([], xs)
-        | (_, []) -> ([], [])
-        | (_, x::xs') ->
-            let (left, right) = split (n-1) xs'
-            in (x::left, right)
+    | (0, _) -> struct ([||], xs)
+    | (_, [||]) -> struct ([||], [||])
+    | (n, xs) -> struct (xs.[..n-1], xs.[n..])
 
-let mk_bvh f all_objs =
+let inline axis d v =
+    match d % 3 with
+    | 0 -> v.X
+    | 1 -> v.Y
+    | _ -> v.Z
+
+let mkBvh f allObjs =
     let rec mk d n xs =
         match xs with
-            | [] -> failwith "mk_bvh: no nodes"
-            | [x] -> Bvh_leaf(f x, x)
-            | _ ->
-            let axis =
-                match d % 3 with
-                    | 0 -> fun v -> v.x
-                    | 1 -> fun v -> v.y
-                    | _ -> fun v -> v.z
-            let key x = axis(centre(f x))
-            let xs_sorted = List.sortBy key xs
-            let (xs_left, xs_right) = split (n/2) xs_sorted
-            let do_left () = mk (d+1) (n/2) xs_left
-            let do_right () = mk (d+1) (n-(n/2)) xs_right
-            let (left, right) =
+        | [||] -> failwith "mk_bvh: no nodes"
+        | [| x |] -> BvhLeaf(f x, x)
+        | _ ->
+            let key x = axis d (centre(f x))
+            let xsSorted = Array.sortBy key xs
+            let struct (xsLeft, xsRight) = split (n/2) xsSorted
+            let xsLeft () = mk (d+1) (n/2) xsLeft
+            let doRight () = mk (d+1) (n-(n/2)) xsRight
+            let struct (left, right) =
                 if n < 100
-                then (do_left(), do_right())
+                then (xsLeft(), doRight())
                 else
-                    let left_task =
-                        Task.Factory.StartNew(do_left,
+                    let leftTask =
+                        Task.Factory.StartNew(xsLeft,
                                               TaskCreationOptions.None)
-                    let right_task =
-                        Task.Factory.StartNew(do_right,
+                    let rightTask =
+                        Task.Factory.StartNew(doRight,
                                               TaskCreationOptions.None)
-                    in (left_task.Result, right_task.Result)
-            let box = enclosing (bvh_aabb left) (bvh_aabb right)
-            in Bvh_split (box, left, right)
-    in mk 0 (List.length all_objs) all_objs
+                    struct (leftTask.Result, rightTask.Result)
+            let box = enclosing (BvhAABB left) (BvhAABB right)
+            BvhSplit (box, left, right)
+    mk 0 (Array.length allObjs) allObjs
 
-type pos = vec3
-type dir = vec3
-type colour = vec3
+type Pos = Vec3
+type Dir = Vec3
+type Colour = Vec3
 
-let black : vec3 = {x=0.0; y=0.0; z=0.0}
-let white : vec3 = {x=1.0; y=1.0; z=1.0}
+let black = { X=0.0; Y=0.0; Z=0.0 }
+let white = { X=1.0; Y=1.0; Z=1.0 }
 
-type ray = {origin: pos
-            dir: dir}
+[<Struct>]
+type Ray = { Origin: Pos; Dir: Dir }
 
-let point_at_param (ray: ray) t =
-    vec_add ray.origin (scale t ray.dir)
+let pointAtParam ray t =
+    vecAdd ray.Origin (scale t ray.Dir)
 
-type hit = { t: float
-             p: pos
-             normal: dir
-             colour: colour
-           }
+[<Struct>]
+type Hit =
+    { T: float
+      P: Pos
+      Normal: Dir
+      Colour: Colour }
 
-type sphere = { pos: pos
-                colour: colour
-                radius: float
-              }
+[<Struct>]
+type Sphere =
+    { Pos: Pos
+      Colour: Colour
+      Radius: float }
 
-let sphere_aabb (s: sphere) : aabb =
-    { min = vec_sub s.pos {x=s.radius; y=s.radius; z=s.radius}
-    ; max = vec_add s.pos {x=s.radius; y=s.radius; z=s.radius}}
+let inline sphereAABB s =
+    { Min = vecSub s.Pos { X=s.Radius; Y=s.Radius; Z=s.Radius }
+      Max = vecAdd s.Pos { X=s.Radius; Y=s.Radius; Z=s.Radius } }
 
-let sphere_hit s r t_min t_max : hit option =
-    let oc = vec_sub r.origin s.pos
-    let a = dot r.dir r.dir
-    let b = dot oc r.dir
-    let c = dot oc oc - s.radius*s.radius
+let inline spehreHit s r tMin tMax =
+    let oc = vecSub r.Origin s.Pos
+    let a = dot r.Dir r.Dir
+    let b = dot oc r.Dir
+    let c = dot oc oc - s.Radius*s.Radius
     let discriminant = b*b - a*c
-    let f temp =
-            if temp < t_max && temp > t_min
-            then Some { t = temp
-                      ; p = point_at_param r temp
-                      ; normal = scale (1.0/s.radius)
-                                 (vec_sub (point_at_param r temp) s.pos)
-                      ; colour = s.colour
-                      }
-            else None
-    in if discriminant <= 0.0
-       then None
-       else match f ((-b - Math.Sqrt(b*b-a*c))/a) with
-                | Some hit -> Some hit
-                | None -> f ((-b + Math.Sqrt(b*b-a*c))/a)
+    let inline f temp =
+        if temp < tMax && temp > tMin then
+            let hit =
+                { T = temp
+                  P = pointAtParam r temp
+                  Normal = scale (1.0/s.Radius) (vecSub (pointAtParam r temp) s.Pos)
+                  Colour = s.Colour }
+            ValueSome hit
+        else ValueNone
+    if discriminant <= 0.0 then
+        ValueNone
+    else
+        match f ((-b - sqrt(b*b-a*c))/a) with
+        | ValueSome hit -> ValueSome hit
+        | ValueNone -> f ((-b + sqrt(b*b-a*c))/a)
 
-let aabb_hit aabb (r: ray) tmin0 tmax0 =
-    let iter min' max' origin' dir' tmin' tmax' =
+let inline aabbHit aabb r tmin0 tmax0 =
+    let inline iter min' max' origin' dir' tmin' tmax' =
         let invD = 1.0 / dir'
         let t0 = (min' - origin') * invD
         let t1 = (max' - origin') * invD
-        let (t0', t1') = if invD < 0.0 then (t1, t0) else (t0, t1)
+        let struct (t0', t1') = if invD < 0.0 then struct (t1, t0) else struct (t0, t1)
         let tmin'' = max t0' tmin'
         let tmax'' = min t1' tmax'
-        in (tmin'', tmax'')
-    let (tmin1, tmax1) =
-        iter aabb.min.x aabb.max.x r.origin.x r.dir.x tmin0 tmax0
-    in if tmax1 <= tmin1 then false
-        else let (tmin2, tmax2) =
-                 iter aabb.min.y aabb.max.y r.origin.y r.dir.y tmin1 tmax1
-             in if tmax2 <= tmin2 then false
-                else let (tmin3, tmax3) =
-                         iter aabb.min.z aabb.max.z r.origin.z r.dir.z tmin2 tmax2
-                     in not (tmax3 <= tmin3)
+        struct (tmin'', tmax'')
+    let struct (tmin1, tmax1) =
+        iter aabb.Min.X aabb.Max.X r.Origin.X r.Dir.X tmin0 tmax0
+    if tmax1 <= tmin1 then
+        false
+    else
+        let struct (tmin2, tmax2) =
+            iter aabb.Min.Y aabb.Max.Y r.Origin.Y r.Dir.Y tmin1 tmax1
+        if tmax2 <= tmin2 then
+            false
+        else
+            let struct (tmin3, tmax3) =
+                iter aabb.Min.Z aabb.Max.Z r.Origin.Z r.Dir.Z tmin2 tmax2
+            tmax3 > tmin3
 
-type objs = sphere bvh
-
-let rec objs_hit bvh r t_min t_max =
+let rec objsHit bvh r tMin tMax =
     match bvh with
-        | (Bvh_leaf (_, s)) ->
-            sphere_hit s r t_min t_max
-        | (Bvh_split (box, left, right)) ->
-            if not (aabb_hit box r t_min t_max)
-            then None
-            else match objs_hit left r t_min t_max with
-                     | Some h -> (match objs_hit right r t_min h.t with
-                                      | None -> Some h
-                                      | Some h' -> Some h')
-                     | None -> objs_hit right r t_min t_max
+    | (BvhLeaf (_, s)) ->
+        spehreHit s r tMin tMax
+    | (BvhSplit (box, left, right)) ->
+        if not (aabbHit box r tMin tMax) then
+            ValueNone
+        else
+            match objsHit left r tMin tMax with
+            | ValueSome h ->
+                match objsHit right r tMin h.T with
+                | ValueNone -> ValueSome h
+                | ValueSome h' -> ValueSome h'
+            | ValueNone ->
+                objsHit right r tMin tMax
 
-type camera = { origin: pos
-              ; llc: pos
-              ; horizontal: dir
-              ; vertical: dir
-              }
+[<Struct>]
+type Camera =
+    { Origin: Pos
+      LLC: Pos
+      Horizontal: Dir
+      Vertical: Dir }
 
-let camera lookfrom lookat vup vfov aspect =
-  let theta = vfov * Math.PI / 180.0
-  let half_height = Math.Tan (theta / 2.0)
-  let half_width = aspect * half_height
-  let origin = lookfrom
-  let w = normalise (vec_sub lookfrom lookat)
-  let u = normalise (cross vup w)
-  let v = cross w u
-  in { origin = lookfrom
-     ; llc = vec_sub
-             (vec_sub (vec_sub origin (scale half_width u))
-                     (scale half_height v)) w
-     ; horizontal = scale (2.0*half_width) u
-     ; vertical = scale (2.0*half_height) v
-     }
+let inline camera lookfrom lookat vup vfov aspect =
+    let theta = vfov * Math.PI / 180.0
+    let halfHeight = tan (theta / 2.0)
+    let halfWidth = aspect * halfHeight
+    let origin = lookfrom
+    let w = normalise (vecSub lookfrom lookat)
+    let u = normalise (cross vup w)
+    let v = cross w u
+    
+    { Origin = lookfrom
+      LLC = vecSub
+             (vecSub (vecSub origin (scale halfWidth u))
+                     (scale halfHeight v)) w
+      Horizontal = scale (2.0*halfWidth) u
+      Vertical = scale (2.0*halfHeight) v }
 
-let get_ray (cam: camera) s t : ray =
-    { origin = cam.origin
-    ; dir = vec_sub (vec_add (vec_add cam.llc (scale s cam.horizontal))
-                             (scale t cam.vertical))
-                    cam.origin
-    }
+let inline getRay cam s t =
+    { Origin = cam.Origin
+      Dir = vecSub (vecAdd (vecAdd cam.LLC (scale s cam.Horizontal)) (scale t cam.Vertical))
+                    cam.Origin }
 
-let reflect v n =
-    vec_sub v (scale (2.0 * dot v n) n)
+let inline reflect v n =
+    vecSub v (scale (2.0 * dot v n) n)
 
-let scatter (r: ray) (hit: hit) =
-    let reflected = reflect (normalise r.dir) hit.normal
-    let scattered = {origin = hit.p; dir = reflected}
-    in if dot scattered.dir hit.normal > 0.0
-       then Some (scattered, hit.colour)
-       else None
+let inline scatter r hit =
+    let reflected = reflect (normalise r.Dir) hit.Normal
+    let scattered = { Origin = hit.P; Dir = reflected }
+    
+    if dot scattered.Dir hit.Normal > 0.0 then
+        ValueSome (scattered, hit.Colour)
+    else
+        ValueNone
 
-let rec ray_colour objs r depth =
-    match objs_hit objs r 0.001 1000000000.0 with
-        | Some hit ->
-            (match scatter r hit with
-             | Some (scattered, attenuation) ->
-             if depth < 50
-             then vec_mul attenuation (ray_colour objs scattered (depth+1))
-             else black
-             | None -> black)
-        | None ->
-          let unit_dir = normalise r.dir
-          let t = 0.5 * (unit_dir.y + 1.0)
-          let bg = {x=0.5; y=0.7; z=1.0}
-          in vec_add (scale (1.0-t) white) (scale t bg)
+let rec rayColour objs r depth =
+    match objsHit objs r 0.001 1000000000.0 with
+    | ValueSome hit ->
+        match scatter r hit with
+        | ValueSome (scattered, attenuation) ->
+            if depth < 50 then
+                vecMul attenuation (rayColour objs scattered (depth+1))
+             else
+                black
+         | ValueNone -> black
+    | ValueNone ->
+        let unitDir = normalise r.Dir
+        let t = 0.5 * (unitDir.Y + 1.0)
+        let bg = { X=0.5; Y=0.7; Z=1.0 }
+        vecAdd (scale (1.0-t) white) (scale t bg)
 
-let trace_ray objs width height cam j i : colour =
+let inline traceRay objs width height cam j i =
     let u = float i / float width
     let v = float j / float height
-    let ray = get_ray cam u v
-    in ray_colour objs ray 0
+    let ray = getRay cam u v
+    rayColour objs ray 0
 
-type pixel = int * int * int
+let colorToPixel p =
+    let ir = int (255.99 * p.X)
+    let ig = int (255.99 * p.Y)
+    let ib = int (255.99 * p.Z)
+    struct (ir, ig, ib)
 
-let colour_to_pixel p =
-    let ir = int (255.99 * p.x)
-    let ig = int (255.99 * p.y)
-    let ib = int (255.99 * p.z)
-    in (ir, ig, ib)
+[<Struct>]
+type Image =
+    { Pixels: struct(int * int * int) []
+      Heigt: int
+      Width: int }
 
-type image = { pixels: pixel array
-             ; height: int
-             ; width: int}
-
-let image2ppm (img: image) : string =
-    let sb = new System.Text.StringBuilder()
-    let onPixel (r,g,b) =
+let inline image2ppm img =
+    let sb = StringBuilder()
+    let inline onPixel (struct(r,g,b)) =
         sb.Append(string r + " " +
                   string g + " " +
                   string b + "\n")
     ignore (sb.Append("P3\n" +
-                      string img.width + " " + string img.height + "\n" +
+                      string img.Width + " " + string img.Heigt + "\n" +
                       "255\n"))
-    for pixel in img.pixels do ignore (onPixel pixel)
+    for pixel in img.Pixels do ignore (onPixel pixel)
     sb.ToString()
 
-let render objs width height cam : image =
-    let pixel l =
-            let i = l % width
-            let j = height - l / width
-            in colour_to_pixel (trace_ray objs width height cam j i)
+let inline render objs width height cam =
+    let inline pixel l =
+        let i = l % width
+        let j = height - l / width
+        colorToPixel (traceRay objs width height cam j i)
+
     let pixels = Array.Parallel.init (height*width) pixel
-    in { width = width
-       ; height = height
-       ; pixels = pixels
-       }
+    
+    { Width = width
+      Heigt = height
+      Pixels = pixels }
 
-type scene = { look_from: pos
-               look_at: pos
-               fov: float
-               spheres: sphere list }
+[<Struct>]
+type Scene =
+    { LookFrom: Pos
+      LookAt: Pos
+      FOV: float
+      Spheres: Sphere [] }
 
-let from_scene width height (scene: scene) : objs * camera =
-  (mk_bvh sphere_aabb scene.spheres,
-   camera scene.look_from scene.look_at {x=0.0; y=1.0; z=0.0}
-     scene.fov (float width/float height))
+let inline fromScene width height scene =
+    struct (mkBvh sphereAABB scene.Spheres,
+            camera scene.LookFrom scene.LookAt { X=0.0; Y=1.0; Z=0.0 } scene.FOV (float width/float height))
 
-let tabulate_2d m n f =
-    Seq.map (fun j -> Seq.map (fun i -> f (j, i)) (seq {0 .. n-1})) (seq {0 .. m-1})
-    |> Seq.concat
-    |> Seq.toList
+let inline tabulate2D m n f =
+    Array.collect (fun j -> Array.map (fun i -> f (j, i)) ([| 0 .. n-1 |])) ([| 0 .. m-1|])
 
-let rgbbox : scene =
+let rgbbox : Scene =
     let n = 10
     let k = 60.0
 
     let leftwall =
-        tabulate_2d n n (fun (y, z) ->
-                            { pos={x=(-k/2.0);
-                                   y=(-k/2.0 + (k/float n) * float y);
-                                   z=(-k/2.0 + (k/float n) * float z)}
-                            ; colour={x=1.0; y=0.0; z=0.0}
-                            ; radius = (k/(float n*2.0))})
+        tabulate2D n n (fun (y, z) ->
+                            { Pos={X=(-k/2.0);
+                                   Y=(-k/2.0 + (k/float n) * float y);
+                                   Z=(-k/2.0 + (k/float n) * float z)}
+                              Colour={X=1.0; Y=0.0; Z=0.0}
+                              Radius = (k/(float n*2.0))})
 
     let midwall =
-        tabulate_2d n n (fun (x,y) ->
-                            { pos={x=(-k/2.0 + (k/float n) * float x);
-                                   y=(-k/2.0 + (k/float n) * float y);
-                                   z=(-k/2.0)}
-                            ; colour={x=1.0; y=1.0; z=0.0}
-                            ; radius = (k/(float n*2.0))})
+        tabulate2D n n (fun (x,y) ->
+                            { Pos={X=(-k/2.0 + (k/float n) * float x);
+                                   Y=(-k/2.0 + (k/float n) * float y);
+                                   Z=(-k/2.0)}
+                              Colour={X=1.0; Y=1.0; Z=0.0}
+                              Radius = (k/(float n*2.0))})
 
     let rightwall =
-        tabulate_2d n n (fun (y,z) ->
-                            { pos={x=(k/2.0);
-                                   y=(-k/2.0 + (k/float n) * float y);
-                                   z=(-k/2.0 + (k/float n) * float z)}
-                            ; colour={x=0.0; y=0.0; z=1.0}
-                            ; radius = (k/(float n*2.0))})
+        tabulate2D n n (fun (y,z) ->
+                            { Pos={X=(k/2.0);
+                                   Y=(-k/2.0 + (k/float n) * float y);
+                                   Z=(-k/2.0 + (k/float n) * float z)}
+                              Colour={X=0.0; Y=0.0; Z=1.0}
+                              Radius = (k/(float n*2.0))})
 
 
     let bottom =
-        tabulate_2d n n (fun (x,z) ->
-                            { pos={x=(-k/2.0 + (k/float n) * float x);
-                                   y=(-k/2.0);
-                                   z=(-k/2.0 + (k/float n) * float z)}
-                            ; colour={x=1.0; y=1.0; z=1.0}
-                            ; radius = (k/(float n*2.0))})
+        tabulate2D n n (fun (x,z) ->
+                            { Pos={X=(-k/2.0 + (k/float n) * float x);
+                                   Y=(-k/2.0);
+                                   Z=(-k/2.0 + (k/float n) * float z)}
+                              Colour={X=1.0; Y=1.0; Z=1.0}
+                              Radius = (k/(float n*2.0))})
 
 
-    in { spheres = leftwall @ midwall @ rightwall @ bottom
-       ; look_from = {x=0.0; y=30.0; z=30.0}
-       ; look_at = {x=0.0; y= -1.0; z= -1.0}
-       ; fov = 75.0 }
+    { Spheres =  [| yield! leftwall; yield! midwall; yield! rightwall; yield! bottom |]
+      LookFrom = {X=0.0; Y=30.0; Z=30.0}
+      LookAt = {X=0.0; Y= -1.0; Z= -1.0}
+      FOV = 75.0 }
 
-let irreg : scene =
+let irreg : Scene =
     let n = 100
     let k = 600.0
     let bottom =
-        tabulate_2d n n (fun (x,z) ->
-                            { pos={x=(-k/2.0 + (k/float n) * float x);
-                                   y=0.0;
-                                   z=(-k/2.0 + (k/float n) * float z)}
-                            ; colour = white
-                            ; radius = k/(float n * 2.0)})
-    in { spheres = bottom
-       ; look_from = {x=0.0; y=12.0; z=30.0}
-       ; look_at = {x=0.0; y=10.0; z= -1.0}
-       ; fov = 75.0 }
+        tabulate2D n n (fun (x,z) ->
+                            { Pos={X=(-k/2.0 + (k/float n) * float x);
+                                   Y=0.0;
+                                   Z=(-k/2.0 + (k/float n) * float z)}
+                              Colour = white
+                              Radius = k/(float n * 2.0)})
+    { Spheres = bottom
+      LookFrom = { X=0.0; Y=12.0; Z=30.0 }
+      LookAt = { X=0.0; Y=10.0; Z= -1.0 }
+      FOV = 75.0 }
 
 let rec getopt needle argv f def =
     match argv with
-        | opt::x::xs ->
-            if opt = needle
-            then f x else getopt needle (x::xs) f def
-        | _ -> def
+    | opt::x::xs ->
+        if opt = needle
+        then f x else getopt needle (x::xs) f def
+    | _ -> def
 
 [<EntryPoint>]
 let main argv =
     let height = getopt "-m" (Array.toList argv) int 200
     let width = getopt "-n" (Array.toList argv) int 200
     let imgfile = getopt "-f" (Array.toList argv) Some None
-    let scene_name = getopt "-s" (Array.toList argv) id "rgbbox"
+    let sceneName = getopt "-s" (Array.toList argv) id "rgbbox"
     let scene =
-        match scene_name with
-            | "rgbbox" -> rgbbox
-            | "irreg" -> irreg
-            | s -> failwith ("No such scene: " + s)
-    let _ = printfn "Using scene '%s' (-s to switch)." scene_name
+        match sceneName with
+        | "rgbbox" -> rgbbox
+        | "irreg" -> irreg
+        | s -> failwith ("No such scene: " + s)
+    printfn "Using scene '%s' (-s to switch)." sceneName
 
-    let w = new Stopwatch()
+    let w = Stopwatch()
 
-    let _ = w.Restart()
-    let (objs, cam) = from_scene width height scene
-    let _ = w.Stop()
-    let _ = printfn "Scene BVH construction in %fs." w.Elapsed.TotalSeconds
+    w.Restart()
+    let struct (objs, cam) = fromScene width height scene
+    w.Stop()
+    printfn "Scene BVH construction in %fs." w.Elapsed.TotalSeconds
 
-    let _ = w.Restart()
+    w.Restart()
     let result = render objs width height cam
-    let _ = w.Stop()
-    let _ = printfn "Rendering in %fs." w.Elapsed.TotalSeconds
+    w.Stop()
+    printfn "Rendering in %fs." w.Elapsed.TotalSeconds
 
-    let _ =
-        match imgfile with
-            | None ->
-                printfn "-f not passed, so not writing image to file."
-            | Some imgfile' ->
-                printfn "Writing image to %s." imgfile';
-                System.IO.File.WriteAllText(imgfile', image2ppm result)
+    match imgfile with
+    | None ->
+        printfn "-f not passed, so not writing image to file."
+    | Some imgfile' ->
+        printfn "Writing image to %s." imgfile';
+        System.IO.File.WriteAllText(imgfile', image2ppm result)
     0
