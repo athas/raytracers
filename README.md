@@ -46,7 +46,7 @@ numbers within the same column.**
 
 Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
-[F#](fsharp/)             |  13ms | 3711ms |   46ms | 1739ms
+[F#](fsharp/)             |  10ms |  957ms |   16ms |  484ms
 [Futhark (GPU)](futhark/) | 5.5ms |   32ms |  5.8ms |   16ms
 [Futhark (CPU)](futhark/) |   9ms |  477ms | 15.7ms |  226ms
 [Haskell](haskell/)       | 0.3ms | 1842ms | 10.6ms | 2062ms
@@ -62,11 +62,9 @@ The Haskell implementation uses the `Strict` language pragma to
 disable laziness in the core modules.  This has about 1.5-2x impact on
 the run-time.
 
-The F# implementation is the most disappointing.  I had expected it to
-outperform Haskell, but it's a bit of a wash.  I use Mono to run the
-F# code, which is perhaps not showing it in its best light.  Further,
-I'm not sure whether special care should be taken to handle
-JIT-specific issues.
+After a few false starts, F# runs quite fast when using .NET Core 2.1.
+The main tricks appear to be [using inline functions and explicit
+value types](https://github.com/athas/raytracers/pull/12).
 
 MPL (which is a parallelism-oriented fork of
 [MLton](http://mlton.org/) for Standard ML) is definitely the star
