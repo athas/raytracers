@@ -7,42 +7,48 @@ type vec3 = {x: float
              y: float
              z: float }
 
-let vf f (v1: vec3) (v2: vec3) =
+let inline vf f (v1: vec3) (v2: vec3) =
     {x= f v1.x v2.x;
      y= f v1.y v2.y;
      z= f v1.z v2.z}
 
-let vec_add = vf (+)
-let vec_sub = vf (-)
-let vec_mul = vf (*)
-let vec_div = vf (/)
+let inline vec_add (v1: vec3) (v2: vec3) =
+    {x= v1.x + v2.x;
+     y= v1.y + v2.y;
+     z= v1.z + v2.z}
+let inline vec_sub (v1: vec3) (v2: vec3) =
+    {x= v1.x - v2.x;
+     y= v1.y - v2.y;
+     z= v1.z - v2.z}
+let inline vec_mul (v1: vec3) (v2: vec3) =
+    {x= v1.x * v2.x;
+     y= v1.y * v2.y;
+     z= v1.z * v2.z}
+let inline vec_div (v1: vec3) (v2: vec3) =
+    {x= v1.x / v2.x;
+     y= v1.y / v2.y;
+     z= v1.z / v2.z}
 
-let scale s v : vec3 =
+let inline scale s v : vec3 =
     { x=s*v.x
     ; y=s*v.y
     ; z=s*v.z }
 
-let dot (v1: vec3) (v2: vec3) =
+let inline dot (v1: vec3) (v2: vec3) =
     let v3 = vec_mul v1 v2
     in v3.x + v3.y + v3.z
 
-let norm v = Math.Sqrt (dot v v)
+let inline norm v = Math.Sqrt (dot v v)
 
-let normalise v = scale (1.0 / norm v) v
+let inline normalise v = scale (1.0 / norm v) v
 
-let cross v1 v2 : vec3 =
+let inline cross v1 v2 : vec3 =
     { x=v1.y*v2.z-v1.z*v2.y
     ; y=v1.z*v2.x-v1.x*v2.z
     ; z=v1.x*v2.y-v1.y*v2.x }
 
 type aabb = { min: vec3
               max: vec3 }
-
-let min x y : float =
-    if x < y then x else y
-
-let max x y : float =
-    if x < y then y else x
 
 let enclosing (box0: aabb) (box1: aabb) =
     let small = { x = min box0.min.x box1.min.x
@@ -78,18 +84,20 @@ let rec split n xs =
             let (left, right) = split (n-1) xs'
             in (x::left, right)
 
+let axis d aabb =
+    let v = centre aabb
+    in match d % 3 with
+        | 0 -> v.x
+        | 1 -> v.y
+        | _ -> v.z
+
 let mk_bvh f all_objs =
     let rec mk d n xs =
         match xs with
             | [] -> failwith "mk_bvh: no nodes"
             | [x] -> Bvh_leaf(f x, x)
             | _ ->
-            let axis =
-                match d % 3 with
-                    | 0 -> fun v -> v.x
-                    | 1 -> fun v -> v.y
-                    | _ -> fun v -> v.z
-            let key x = axis(centre(f x))
+            let key x = axis d (f x)
             let xs_sorted = List.sortBy key xs
             let (xs_left, xs_right) = split (n/2) xs_sorted
             let do_left () = mk (d+1) (n/2) xs_left
