@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
     ret = futhark_entry_rgbbox(ctx, &scene);
     assert(ret == 0);
   } else if (strcmp(scene_name, "irreg") == 0) {
-    futhark_entry_irreg(ctx, &scene);
+    ret = futhark_entry_irreg(ctx, &scene);
     assert(ret == 0);
   } else {
     fprintf(stderr, "Unknown scene: %s\n", scene_name);
