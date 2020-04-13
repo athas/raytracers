@@ -84,19 +84,21 @@ let log ?id s =
   let id_str = match id with None -> "" | Some id -> sp "Worker-%d: " id in
   Printf.printf "%s%s\n%!" id_str s
 
+let axis d (aabb: aabb) =
+  let p = centre aabb in
+  match d mod 3 with
+  | 0 -> p.x
+  | 1 -> p.y
+  | 2 -> p.z
+  | _ -> assert false
+
 let mk_bvh ~pool f all_objs =
   let rec mk d n xs =
     match xs with
     | [] -> failwith "mk_bvh: no nodes"
     | [x] -> Bvh_leaf(f x, x)
     | _ ->
-      let axis =
-        match d mod 3 with
-        | 0 -> fun v -> v.x
-        | 1 -> fun v -> v.y
-        | _ -> fun v -> v.z
-      in
-      let key x = axis (centre (f x) ) in
+      let key x = axis d (f x) in
       let sort_by_keys x y = compare (key x) (key y) in
       let xs_sorted = List.sort sort_by_keys xs in
       let (xs_left, xs_right) = split (n/2) xs_sorted in
