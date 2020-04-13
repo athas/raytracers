@@ -61,6 +61,8 @@ int main(int argc, char** argv) {
   struct futhark_context *ctx = futhark_context_new(cfg);
   assert(ctx != NULL);
 
+  assert(futhark_context_get_error(ctx) == NULL);
+
   int ret;
   struct futhark_opaque_scene *scene;
   struct futhark_opaque_prepared_scene *prepared_scene = NULL;
@@ -76,6 +78,7 @@ int main(int argc, char** argv) {
   } else {
     fprintf(stderr, "Unknown scene: %s\n", scene_name);
     fprintf(stderr, "Known scenes: rgbbox, irreg\n");
+    exit(1);
   }
   assert(scene != NULL);
 
