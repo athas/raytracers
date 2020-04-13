@@ -1,4 +1,4 @@
-# A parallel ray tracer in various functional programming languages
+# Performance comparison of parallel ray tracing in functional programming languages
 
 This repository is an embryonic collection of ray tracers written with
 parallel functional programming techniques.  The intent is to
