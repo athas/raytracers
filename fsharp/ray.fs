@@ -3,6 +3,7 @@ open System.Diagnostics
 open System.Threading
 open System.Threading.Tasks
 
+[<Struct>]
 type vec3 = {x: float
              y: float
              z: float }
@@ -47,6 +48,7 @@ let inline cross v1 v2 : vec3 =
     ; y=v1.z*v2.x-v1.x*v2.z
     ; z=v1.x*v2.y-v1.y*v2.x }
 
+[<Struct>]
 type aabb = { min: vec3
               max: vec3 }
 
@@ -124,18 +126,21 @@ type colour = vec3
 let black : vec3 = {x=0.0; y=0.0; z=0.0}
 let white : vec3 = {x=1.0; y=1.0; z=1.0}
 
+[<Struct>]
 type ray = {origin: pos
             dir: dir}
 
 let inline point_at_param (ray: ray) t =
     vec_add ray.origin (scale t ray.dir)
 
+[<Struct>]
 type hit = { t: float
              p: pos
              normal: dir
              colour: colour
            }
 
+[<Struct>]
 type sphere = { pos: pos
                 colour: colour
                 radius: float
@@ -200,6 +205,7 @@ let rec objs_hit bvh r t_min t_max =
                                       | Some h' -> Some h')
                      | None -> objs_hit right r t_min t_max
 
+/<Struct>]
 type camera = { origin: pos
               ; llc: pos
               ; horizontal: dir
@@ -260,21 +266,19 @@ let trace_ray objs width height cam j i : colour =
     let ray = get_ray cam u v
     in ray_colour objs ray 0
 
-type pixel = int * int * int
-
 let colour_to_pixel p =
     let ir = int (255.99 * p.x)
     let ig = int (255.99 * p.y)
     let ib = int (255.99 * p.z)
-    in (ir, ig, ib)
+    in struct (ir, ig, ib)
 
-type image = { pixels: pixel array
+type image = { pixels: struct (int * int * int) array
              ; height: int
              ; width: int}
 
 let image2ppm (img: image) : string =
     let sb = new System.Text.StringBuilder()
-    let onPixel (r,g,b) =
+    let onPixel struct (r,g,b) =
         sb.Append(string r + " " +
                   string g + " " +
                   string b + "\n")
@@ -295,6 +299,7 @@ let render objs width height cam : image =
        ; pixels = pixels
        }
 
+[<Struct>]
 type scene = { look_from: pos
                look_at: pos
                fov: float
