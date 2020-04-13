@@ -84,6 +84,11 @@ scenes used here), but it is about two hundred lines longer than the
 recursive formulation.  The CPU timings use an [early experimental
 multicore backend](https://github.com/diku-dk/futhark/tree/multicore).
 
+It is interesting that the fastest implementations are all from exotic
+or experimental language implementations.  Considering how long both
+functional and parallel programming has existed, it's surprising that
+the *relatively mainstream* languages don't do better.
+
 ## See also
 
 Jon Harrop's [Ray tracer language
