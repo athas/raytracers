@@ -88,10 +88,15 @@ scenes used here), but it is about two hundred lines longer than the
 recursive formulation.  The CPU timings use an [early experimental
 multicore backend](https://github.com/diku-dk/futhark/tree/multicore).
 
-It is interesting that the fastest implementations are all from exotic
-or experimental language implementations.  Considering how long both
-functional and parallel programming has existed, it's surprising that
-the *relatively mainstream* languages don't do better.
+Rust is the fastest CPU language.  This is not terribly surprising, as
+it has a mature compiler, and its default behaviour of unboxing
+everything is exactly what you need for this program.
+
+It is interesting that, with the exception of Rust, the fastest
+implementations are all from exotic or experimental language
+implementations.  Considering how long both functional and parallel
+programming has existed, it's surprising that the *relatively
+mainstream* languages don't do better.
 
 ## See also
 
