@@ -11,3 +11,6 @@ $ ./main -n 1000 -m 1000 -s rgbbox -f rgbbox.ppm
 ```
 
 This will also create an output image.
+
+Use the environment variable `FUTHARK_BACKEND` to select a different
+Futhark backend (requires a recompile).

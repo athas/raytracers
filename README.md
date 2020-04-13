@@ -46,7 +46,8 @@ Ryzen 1700X (8 cores, 16 threads) CPU and a Vega 64 GPU.
 Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
 [F#](fsharp/) | 13ms | 5990ms | 48ms | 2647ms
-[Futhark](futhark/) | 5.5ms | 32ms | 5.8ms | 16ms
+[Futhark (GPU)](futhark/) | 5.5ms | 32ms | 5.8ms | 16ms
+[Futhark (CPU)](futhark/) | 9ms | 477ms | 15.7ms | 226ms
 [Haskell](haskell/) | 0.9ms | 4757ms | 19.7ms | 2924ms
 [MPL](https://github.com/MPLLang/mpl/blob/master/examples/src/ray.sml) | 0.4ms | 341ms | 9.4ms | 112ms
 [OCaml](ocaml/) | 1.3ms | 723ms | 15ms | 240ms
@@ -78,7 +79,8 @@ BVHs, Octrees, and *k*-d
 Trees](https://research.nvidia.com/sites/default/files/publications/karras2012hpg_paper.pdf).
 This is actually a pretty fast technique (although not for the small
 scenes used here), but it is about two hundred lines longer than the
-recursive formulation.
+recursive formulation.  The CPU timings use an [early experimental
+multicore backend](https://github.com/diku-dk/futhark/tree/multicore).
 
 ## See also
 
