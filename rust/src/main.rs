@@ -5,67 +5,86 @@ use std::cmp::{Ordering, PartialOrd};
 use std::fs::File;
 use std::io;
 use std::io::Write;
+use std::ops::{Add, Mul, Sub};
 use std::time::Instant;
 
 use rayon::prelude::*;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct Vec3 {
     x: f32,
     y: f32,
     z: f32,
 }
 
-fn vec_add(v1: &Vec3, v2: &Vec3) -> Vec3 {
-    Vec3 {
-        x: v1.x + v2.x,
-        y: v1.y + v2.y,
-        z: v1.z + v2.z,
+impl Vec3 {
+    fn scale(self, s: f32) -> Vec3 {
+        Vec3 {
+            x: self.x * s,
+            y: self.y * s,
+            z: self.z * s,
+        }
+    }
+
+    fn norm(&self) -> f32 {
+        self.dot(&self).sqrt()
+    }
+
+    fn normalise(&self) -> Vec3 {
+        self.scale(1.0 / self.norm())
+    }
+
+    fn dot(&self, other: &Vec3) -> f32 {
+        let v3 = *self * *other;
+        v3.x + v3.y + v3.z
+    }
+
+    fn cross(&self, other: &Vec3) -> Vec3 {
+        Vec3 {
+            x: self.y * other.z - self.z * other.y,
+            y: self.z * other.x - self.x * other.z,
+            z: self.x * other.y - self.y * other.x,
+        }
+    }
+
+    fn reflect(&self, n: &Vec3) -> Vec3 {
+        *self - n.scale(2.0 * self.dot(n))
     }
 }
 
-fn vec_sub(v1: &Vec3, v2: &Vec3) -> Vec3 {
-    Vec3 {
-        x: v1.x - v2.x,
-        y: v1.y - v2.y,
-        z: v1.z - v2.z,
+impl Add for Vec3 {
+    type Output = Vec3;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
     }
 }
 
-fn vec_mul(v1: &Vec3, v2: &Vec3) -> Vec3 {
-    Vec3 {
-        x: v1.x * v2.x,
-        y: v1.y * v2.y,
-        z: v1.z * v2.z,
+impl Sub for Vec3 {
+    type Output = Vec3;
+
+    fn sub(self, other: Self) -> Self {
+        Self {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
     }
 }
 
-fn scale(s: f32, v: &Vec3) -> Vec3 {
-    Vec3 {
-        x: v.x * s,
-        y: v.y * s,
-        z: v.z * s,
-    }
-}
+impl Mul for Vec3 {
+    type Output = Vec3;
 
-fn dot(v1: &Vec3, v2: &Vec3) -> f32 {
-    let v3 = vec_mul(v1, v2);
-    v3.x + v3.y + v3.z
-}
-
-fn norm(v: &Vec3) -> f32 {
-    f32::sqrt(dot(v, v))
-}
-
-fn normalise(v: &Vec3) -> Vec3 {
-    scale(1.0 / norm(v), v)
-}
-
-fn cross(v1: &Vec3, v2: &Vec3) -> Vec3 {
-    Vec3 {
-        x: v1.y * v2.z - v1.z * v2.y,
-        y: v1.z * v2.x - v1.x * v2.z,
-        z: v1.x * v2.y - v1.y * v2.x,
+    fn mul(self, other: Self) -> Self {
+        Self {
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
+        }
     }
 }
 
@@ -73,23 +92,6 @@ fn cross(v1: &Vec3, v2: &Vec3) -> Vec3 {
 struct Aabb {
     min: Vec3,
     max: Vec3,
-}
-
-fn enclosing(box0: &Aabb, box1: &Aabb) -> Aabb {
-    let small = Vec3 {
-        x: f32::min(box0.min.x, box1.min.x),
-        y: f32::min(box0.min.y, box1.min.y),
-        z: f32::min(box0.min.z, box1.min.z),
-    };
-    let big = Vec3 {
-        x: f32::max(box0.max.x, box1.max.x),
-        y: f32::max(box0.max.y, box1.max.y),
-        z: f32::max(box0.max.z, box1.max.z),
-    };
-    Aabb {
-        min: small,
-        max: big,
-    }
 }
 
 impl Aabb {
@@ -121,8 +123,25 @@ impl Aabb {
             } else {
                 let (tmin3, tmax3) =
                     iter(self.min.z, self.max.z, r.origin.z, r.dir.z, tmin2, tmax2);
-                !(tmax3 <= tmin3)
+                tmax3 > tmin3
             }
+        }
+    }
+
+    fn enclosing(&self, other: &Aabb) -> Aabb {
+        let small = Vec3 {
+            x: f32::min(self.min.x, other.min.x),
+            y: f32::min(self.min.y, other.min.y),
+            z: f32::min(self.min.z, other.min.z),
+        };
+        let big = Vec3 {
+            x: f32::max(self.max.x, other.max.x),
+            y: f32::max(self.max.y, other.max.y),
+            z: f32::max(self.max.z, other.max.z),
+        };
+        Aabb {
+            min: small,
+            max: big,
         }
     }
 }
@@ -165,7 +184,43 @@ struct Ray {
 
 impl Ray {
     fn point_at_param(&self, t: f32) -> Vec3 {
-        vec_add(&self.origin, &scale(t, &self.dir))
+        self.origin + self.dir.scale(t)
+    }
+
+    fn scatter(&self, hit: &Hit) -> Option<(Ray, Colour)> {
+        let reflected = self.dir.normalise().reflect(&hit.normal);
+        let scattered = Ray {
+            origin: hit.p,
+            dir: reflected,
+        };
+        if scattered.dir.dot(&hit.normal) > 0.0 {
+            Some((scattered, hit.colour))
+        } else {
+            None
+        }
+    }
+
+    fn colour(&self, objs: &Objs, depth: usize) -> Colour {
+        if let Some(hit) = objs.hit(self, 0.001, 1_000_000_000.0) {
+            if let Some((scattered, attenuation)) = self.scatter(&hit) {
+                if depth < 50 {
+                    attenuation * scattered.colour(&objs, depth + 1)
+                } else {
+                    BLACK
+                }
+            } else {
+                BLACK
+            }
+        } else {
+            let unit_dir = self.dir.normalise();
+            let t = 0.5 * (unit_dir.y + 1.0);
+            let bg = Vec3 {
+                x: 0.5,
+                y: 0.7,
+                z: 1.0,
+            };
+            WHITE.scale(1.0 - t) + bg.scale(t)
+        }
     }
 }
 
@@ -185,10 +240,12 @@ struct Sphere {
 
 impl Sphere {
     fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<Hit> {
-        let oc = vec_sub(&r.origin, &self.pos);
-        let a = dot(&r.dir, &r.dir);
-        let b = dot(&oc, &r.dir);
-        let c = dot(&oc, &oc) - self.radius * self.radius;
+        #![allow(clippy::many_single_char_names)]
+
+        let oc = r.origin - self.pos;
+        let a = r.dir.dot(&r.dir);
+        let b = oc.dot(&r.dir);
+        let c = oc.dot(&oc) - self.radius * self.radius;
         let discriminant = b * b - a * c;
 
         let helper = |temp| {
@@ -196,11 +253,8 @@ impl Sphere {
                 Some(Hit {
                     t: temp,
                     p: r.point_at_param(temp),
-                    normal: scale(
-                        1.0 / self.radius,
-                        &vec_sub(&r.point_at_param(temp), &self.pos),
-                    ),
-                    colour: self.colour.clone(),
+                    normal: (r.point_at_param(temp) - self.pos).scale(1.0 / self.radius),
+                    colour: self.colour,
                 })
             } else {
                 None
@@ -225,22 +279,18 @@ trait ToAabb {
 impl ToAabb for Sphere {
     fn to_aabb(&self) -> Aabb {
         Aabb {
-            min: vec_sub(
-                &self.pos,
-                &Vec3 {
+            min: self.pos
+                - Vec3 {
                     x: self.radius,
                     y: self.radius,
                     z: self.radius,
                 },
-            ),
-            max: vec_add(
-                &self.pos,
-                &Vec3 {
+            max: self.pos
+                + Vec3 {
                     x: self.radius,
                     y: self.radius,
                     z: self.radius,
                 },
-            ),
         }
     }
 }
@@ -274,7 +324,7 @@ impl<T> Bvh<T> {
                     || helper(d + 1, n / 2, xs_left),
                     || helper(d + 1, n - (n / 2), xs_right),
                 );
-                let b = enclosing(left.aabb(), right.aabb());
+                let b = left.aabb().enclosing(right.aabb());
                 Bvh::Split(b, Box::new(left), Box::new(right))
             }
         }
@@ -285,20 +335,21 @@ impl<T> Bvh<T> {
 
 type Objs = Bvh<Sphere>;
 
-// Kan laves til impl
-fn objs_hit(bvh: &Objs, r: &Ray, t_min: f32, t_max: f32) -> Option<Hit> {
-    match bvh {
-        Bvh::Leaf(_, s) => s.hit(r, t_min, t_max),
-        Bvh::Split(b, left, right) => {
-            if !(b.hit(r, t_min, t_max)) {
-                None
-            } else {
-                match objs_hit(&*left, r, t_min, t_max) {
-                    Some(h) => match objs_hit(&*right, r, t_min, h.t) {
-                        None => Some(h),
-                        Some(h_) => Some(h_),
-                    },
-                    None => objs_hit(&*right, r, t_min, t_max),
+impl Objs {
+    fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<Hit> {
+        match self {
+            Bvh::Leaf(_, s) => s.hit(r, t_min, t_max),
+            Bvh::Split(b, left, right) => {
+                if !(b.hit(r, t_min, t_max)) {
+                    None
+                } else {
+                    match left.hit(r, t_min, t_max) {
+                        Some(h) => match right.hit(r, t_min, h.t) {
+                            None => Some(h),
+                            Some(h_) => Some(h_),
+                        },
+                        None => right.hit(r, t_min, t_max),
+                    }
                 }
             }
         }
@@ -317,74 +368,23 @@ impl Camera {
         let theta = vfov * std::f32::consts::PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect * half_height;
-        let w = normalise(&vec_sub(lookfrom, lookat));
-        let u = normalise(&cross(vup, &w));
-        let v = cross(&w, &u);
+        let w = (*lookfrom - *lookat).normalise();
+        let u = vup.cross(&w).normalise();
+        let v = w.cross(&u);
         Camera {
-            origin: lookfrom.clone(),
-            llc: vec_sub(
-                &vec_sub(
-                    &vec_sub(lookfrom, &scale(half_width, &u)),
-                    &scale(half_height, &v),
-                ),
-                &w,
-            ),
-            horizontal: scale(2.0 * half_width, &u),
-            vertical: scale(2.0 * half_height, &v),
+            origin: *lookfrom,
+            llc: *lookfrom - u.scale(half_width) - v.scale(half_height) - w,
+
+            horizontal: u.scale(2.0 * half_width),
+            vertical: v.scale(2.0 * half_height),
         }
     }
 
     fn ray(&self, s: f32, t: f32) -> Ray {
         Ray {
-            origin: self.origin.clone(),
-            dir: vec_sub(
-                &vec_add(
-                    &vec_add(&self.llc, &scale(s, &self.horizontal)),
-                    &scale(t, &self.vertical),
-                ),
-                &self.origin,
-            ),
+            origin: self.origin,
+            dir: self.llc + self.horizontal.scale(s) + self.vertical.scale(t) - self.origin,
         }
-    }
-}
-
-fn reflect(v: &Vec3, n: &Vec3) -> Vec3 {
-    vec_sub(v, &scale(2.0 * dot(v, n), n))
-}
-
-fn scatter(r: &Ray, hit: &Hit) -> Option<(Ray, Colour)> {
-    let reflected = reflect(&normalise(&r.dir), &hit.normal);
-    let scattered = Ray {
-        origin: hit.p.clone(),
-        dir: reflected,
-    };
-    if dot(&scattered.dir, &hit.normal) > 0.0 {
-        Some((scattered, hit.colour.clone()))
-    } else {
-        None
-    }
-}
-
-fn ray_colour(objs: &Objs, r: &Ray, depth: usize) -> Colour {
-    if let Some(hit) = objs_hit(objs, r, 0.001, 1_000_000_000.0) {
-        if let Some((scattered, attenuation)) = scatter(r, &hit) {
-            if depth < 50 {
-                vec_mul(&attenuation, &ray_colour(&objs, &scattered, depth + 1))
-            } else {
-                BLACK
-            }
-        } else {
-            BLACK
-        }
-    } else {
-        let unit_dir = normalise(&r.dir);
-        let t = 0.5 * (unit_dir.y + 1.0);
-        let bg = Vec3 {
-            x: 0.5,
-            y: 0.7,
-            z: 1.0,
-        };
-        vec_add(&scale(1.0 - t, &WHITE), &scale(t, &bg))
     }
 }
 
@@ -392,17 +392,19 @@ fn trace_ray(objs: &Objs, width: i32, height: i32, cam: &Camera, j: i32, i: i32)
     let u = i as f32 / width as f32;
     let v = j as f32 / height as f32;
     let ray = cam.ray(u, v);
-    ray_colour(objs, &ray, 0)
+    ray.colour(objs, 0)
 }
 
 type Pixel = (i32, i32, i32);
 
-fn colour_to_pixel(c: Colour) -> Pixel {
-    (
-        (c.x * 255.99) as i32,
-        (c.y * 255.99) as i32,
-        (c.z * 255.99) as i32,
-    )
+impl From<Colour> for Pixel {
+    fn from(c: Colour) -> Self {
+        (
+            (c.x * 255.99) as i32,
+            (c.y * 255.99) as i32,
+            (c.z * 255.99) as i32,
+        )
+    }
 }
 
 struct Image {
@@ -425,7 +427,7 @@ fn render(objs: &Objs, width: i32, height: i32, cam: &Camera) -> Image {
     let pixel = |l| {
         let i = l % width;
         let j = height - l / width;
-        colour_to_pixel(trace_ray(objs, width, height, cam, j, i))
+        Pixel::from(trace_ray(objs, width, height, cam, j, i))
     };
 
     let pixels: Vec<_> = (0..height * width).into_par_iter().map(pixel).collect();
