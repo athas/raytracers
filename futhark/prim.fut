@@ -5,9 +5,9 @@ type vec3 = {x: f32, y: f32, z: f32 }
 let vec (x, y, z) : vec3 = {x,y,z}
 
 let vf f (v1: vec3) (v2: vec3) =
-    {x= f v1.x v2.x,
-     y= f v1.y v2.y,
-     z= f v1.z v2.z}
+  {x= f v1.x v2.x,
+   y= f v1.y v2.y,
+   z= f v1.z v2.z}
 
 let vec_add = vf (+)
 let vec_sub = vf (-)
@@ -15,22 +15,22 @@ let vec_mul = vf (*)
 let vec_div = vf (/)
 
 let scale s (v: vec3) =
-    { x=s*v.x
-    , y=s*v.y
-    , z=s*v.z }
+  { x=s*v.x
+  , y=s*v.y
+  , z=s*v.z }
 
 let dot (v1: vec3) (v2: vec3) =
-    let v3 = vec_mul v1 v2
-    in v3.x + v3.y + v3.z
+  let v3 = vec_mul v1 v2
+  in v3.x + v3.y + v3.z
 
 let norm v = f32.sqrt (dot v v)
 
 let normalise v = scale (1.0 / norm v) v
 
 let cross (v1: vec3) (v2: vec3) =
-    { x=v1.y*v2.z-v1.z*v2.y
-    , y=v1.z*v2.x-v1.x*v2.z
-    , z=v1.x*v2.y-v1.y*v2.x }
+  { x=v1.y*v2.z-v1.z*v2.y
+  , y=v1.z*v2.x-v1.x*v2.z
+  , z=v1.x*v2.y-v1.y*v2.x }
 
 -- | Axis-aligned bounding box.
 type aabb = { min: vec3, max: vec3 }
