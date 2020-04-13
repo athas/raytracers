@@ -70,8 +70,10 @@ let bvh_fold [n] 'a 'b (contains: aabb -> bool) (op: b -> i32 -> a -> b) (init: 
     if from_left
     then #rec node.right
     -- First encounter and in this BB?
-    else if !from_right && contains node.aabb
-    then #rec node.left
+    else if !from_right
+    then if contains node.aabb
+         then #rec node.left
+         else #norec
     else #norec
   in match rec_child
      case #norec ->

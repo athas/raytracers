@@ -1,5 +1,19 @@
 # Futhark implementation
 
+## TL;DR
+
+```
+$ make
+```
+
+or
+
+```
+$ make BACKEND=multicore CC=clang
+```
+
+## Details
+
 Because we want to benchmark the rendering time independently of the
 BVH construction and scene creation, we don't use the normal `futhark
 bench` tool.  Instead we have a C program, `main.c` that calls the
