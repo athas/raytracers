@@ -1,6 +1,15 @@
 CC?=gcc
-CFLAGS=-O3 -std=c99 -lOpenCL -lm -pthread
 FUTHARK_BACKEND?=opencl
+
+ifeq ($(FUTHARK_BACKEND),opencl)
+CFLAGS=-O3 -std=c99 -lm -lOpenCL
+else ifeq ($(FUTHARK_BACKEND),multicore)
+CFLAGS=-O3 -std=c99 -lm -pthread
+else ifeq ($(FUTHARK_BACKEND),cuda)
+CFLAGS=-O3 -std=c99 -lm -lcuda -lnvrtc
+else
+CFLAGS=-O3 -std=c99 -lm
+endif
 
 all: rgbbox_1000.ppm irreg_1000.ppm
 
