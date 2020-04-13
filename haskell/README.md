@@ -1,5 +1,15 @@
 # Haskell implementation
 
+## TL;DR
+
+```
+$ cabal bench --benchmark-options="+RTS -N8"
+```
+
+Replace `8` with how many physical threads you want to use.
+
+## Details
+
 This program makes use of the cabal-install build tool (the command
 line program is just called `cabal`).  You will need at least `cabal`
 3.0.0.0.
