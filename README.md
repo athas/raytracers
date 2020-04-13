@@ -41,7 +41,8 @@ For each scene, two things are benchmarked:
 ## Results
 
 The following measurements are for 1000x1000 renderings.  I used a
-Ryzen 1700X (8 cores, 16 threads) CPU and a Vega 64 GPU.
+Ryzen 1700X (8 cores, 16 threads) CPU and a Vega 64 GPU.  **Compare
+numbers within the same column.**
 
 Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
