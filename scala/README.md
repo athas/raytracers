@@ -1,0 +1,4 @@
+- Make sure you have sbt installed
+- run `sbt`
+- then run `run <scene> <width> <height>`
+- the output file will be written to `out.ppm`
