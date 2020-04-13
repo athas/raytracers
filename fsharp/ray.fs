@@ -61,7 +61,7 @@ let enclosing (box0: aabb) (box1: aabb) =
               }
     in {min=small; max=big}
 
-let centre (aabb: aabb) =
+let inline centre (aabb: aabb) =
     { x = aabb.min.x + aabb.max.x - aabb.min.x
     ; y = aabb.min.y + aabb.max.y - aabb.min.y
     ; z = aabb.min.z + aabb.max.z - aabb.min.z
@@ -84,7 +84,7 @@ let rec split n xs =
             let (left, right) = split (n-1) xs'
             in (x::left, right)
 
-let axis d aabb =
+let inline axis d aabb =
     let v = centre aabb
     in match d % 3 with
         | 0 -> v.x
@@ -127,7 +127,7 @@ let white : vec3 = {x=1.0; y=1.0; z=1.0}
 type ray = {origin: pos
             dir: dir}
 
-let point_at_param (ray: ray) t =
+let inline point_at_param (ray: ray) t =
     vec_add ray.origin (scale t ray.dir)
 
 type hit = { t: float
@@ -167,7 +167,7 @@ let sphere_hit s r t_min t_max : hit option =
                 | None -> f ((-b + Math.Sqrt(b*b-a*c))/a)
 
 let aabb_hit aabb (r: ray) tmin0 tmax0 =
-    let iter min' max' origin' dir' tmin' tmax' =
+    let inline iter min' max' origin' dir' tmin' tmax' =
         let invD = 1.0 / dir'
         let t0 = (min' - origin') * invD
         let t1 = (max' - origin') * invD
