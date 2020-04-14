@@ -1,14 +1,3 @@
-(* A ray tracer that fires one ray per pixel and only supports
-coloured, reflective spheres.  It parallelises two things
-
- 0. The construction of a BVH for accelerating ray lookups
-    (divide-and-conquer task parallelism)
-
- 1. The parallel loop across all of the pixels to be computed (data
-    parallelism, albeit potentially poorly load balanced)
-
-*)
-
 type vec3 = {x: real, y: real, z: real}
 
 local
