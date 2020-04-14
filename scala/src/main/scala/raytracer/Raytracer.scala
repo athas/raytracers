@@ -14,7 +14,7 @@ object Raytracer extends App {
 
   final case class Ray(origin: Pos, dir: Dir) {
 
-    def pointAtParam(t: Float): Pos = origin + dir.scale(t)
+    @inline def pointAtParam(t: Float): Pos = origin + dir.scale(t)
 
     def aabbHit(aabb: AABB, tMin0: Float, tMax0: Float): Boolean = {
       def go(min_ : Float, max_ : Float, origin_ : Float, dir_ : Float, tMin_ : Float, tMax_ : Float): (Float, Float) = {
@@ -63,7 +63,7 @@ object Raytracer extends App {
 
       if(discriminant <= 0) None
       else tryHit((-b - math.sqrt(b*b - a*c).toFloat) / a) match {
-        case Some(hit) => Some(hit)
+        case s: Some[Hit] => s
         case None => tryHit((-b + math.sqrt(b*b - a*c).toFloat)/a)
       }
     }
@@ -109,13 +109,13 @@ object Raytracer extends App {
        , cam.llc + cam.horizontal.scale(s) + cam.vertical.scale(t) - cam.origin
        )
 
-  def reflect(v: Vec3, n: Vec3): Vec3 =
+  @inline def reflect(v: Vec3, n: Vec3): Vec3 =
     v - n.scale(2 * (v dot n))
 
-  def scatter(ray: Ray, hit: Hit): Option[(Ray, Vec3)] = {
+  @inline def scatter(ray: Ray, hit: Hit): Option[(Ray, Vec3)] = {
     val reflected = reflect(ray.dir.normalise, hit.normal)
     val scattered = Ray(hit.p, reflected)
-    if((scattered.dir dot hit.normal) > 0)
+    if((reflected dot hit.normal) > 0)
       Some((scattered, hit.color)) else None
   }
 
@@ -126,7 +126,7 @@ object Raytracer extends App {
       case _ => black
     }
     case None =>
-      val unitDir = (ray.dir).normalise
+      val unitDir = ray.dir.normalise
       val t = 0.5f * (unitDir + Vec3.one).y
       Vec3.one.scale(1f-t) + Vec3(0.5f, 0.7f, 1f).scale(t)
   }
@@ -145,12 +145,17 @@ object Raytracer extends App {
     Image(width, height, (j, i) =>
         colorToPixel(traceRay(objs, width, height, camera, j, i)))
 
-  def time[R](text: String, block: => R): R = {
-    val t0 = System.nanoTime()
-    val result = block    // call-by-name
-    val t1 = System.nanoTime()
-    println(s"$text: ${(t1 - t0)/1000000.0}ms")
-    result
+  def time[R](text: String, reps: Int, block: => R): R = {
+    val timingHack: Seq[(Double, R)] = (1 to reps).map { _ =>
+      val t0 = System.nanoTime()
+      val result = block    // call-by-name
+      val t1 = System.nanoTime()
+      ((t1 - t0)/1000000.0, result)
+    }
+    val timings = timingHack.map(_._1)
+    println(s"$text: ${timings.sum / timings.length}ms (average over $reps repetitions)")
+    // First result
+    timingHack.head._2
   }
 
   val (scene, width, height) = (args match {
@@ -165,12 +170,14 @@ object Raytracer extends App {
     (Scene.rgbbox, 1000, 1000)
   })
 
-  val (objs, cam) = time("Constructing the scene took", scene.toObjsCam(width, height))
-  val out = time("Rendering took", render(objs, width, height, cam).toPPM)
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  val (objs, cam) = time("Constructing the scene took", 100, scene.toObjsCam(width, height))
+  val out = time("Rendering took", 5, render(objs, width, height, cam))
 
   import java.io._
   val pw = new PrintWriter(new File("out.ppm"))
-  pw.write(out)
+  pw.write(out.toPPM)
   println("wrote output to 'out.ppm'")
   pw.close
 

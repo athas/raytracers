@@ -1,9 +1,10 @@
 package raytracer
 
 import Raytracer.{Pos, Sphere, Objs, Camera}
+import scala.concurrent.ExecutionContext
 
 final case class Scene(camLookFrom: Pos, camLookAt: Pos, camFov: Float, spheres: List[Sphere]) {
-  def toObjsCam(width: Int, height: Int): (Objs, Camera) =
+  def toObjsCam(width: Int, height: Int)(implicit ec: ExecutionContext): (Objs, Camera) =
     (BVH(_.aabb, spheres), Camera(camLookFrom, camLookAt, Vec3(0,1,0), camFov, width.toFloat / height.toFloat))
 }
 
