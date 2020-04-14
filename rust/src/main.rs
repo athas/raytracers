@@ -637,7 +637,7 @@ fn main(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(filename) = args.file_out {
         println!("Writing to {}", filename);
-        let file = File::create(filename)?;
+        let file = io::BufWriter::new(File::create(filename)?);
         image2ppm(file, result)?;
     } else {
         println!("Nothing to write");
