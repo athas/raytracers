@@ -13,6 +13,8 @@ import Data.Maybe (fromMaybe)
 import BVH
 import Image
 import Vec3
+import Data.Massiv.Array (S)
+import Data.Massiv.Array.IO
 
 type Pos = Vec3
 type Dir = Vec3
@@ -176,14 +178,10 @@ traceRay objs width height cam =
               ray = getRay cam u v
           in rayColour objs ray 0
 
-colourToPixel :: Colour -> Pixel
-colourToPixel (Vec3 r g b) =
-  let ir = truncate (255.99 * r)
-      ig = truncate (255.99 * g)
-      ib = truncate (255.99 * b)
-  in (ir, ig, ib)
+colourToPixel :: Colour -> Pixel SRGB Word8
+colourToPixel (Vec3 r g b) = toPixel8 $ PixelSRGB r g b
 
-render :: Objs -> Int -> Int -> Camera -> Image
-render objs width height cam =
-  mkImage width height $ \j i ->
+render :: Objs -> Int -> Int -> Camera -> Image S SRGB Word8
+render objs height width cam =
+  mkImage height width $ \j i ->
   colourToPixel $ traceRay objs width height cam j i

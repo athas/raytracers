@@ -22,6 +22,6 @@ main = do
             Nothing -> error $ "Invalid scene.  Known scenes:\n" ++ unlines (map fst scenes)
             Just scene' -> do
               let (objs, cam) = fromScene width' height' scene'
-              putStr $ image2ppm $ render objs width' height' cam
+              writeImage (scene ++ ".png") $ render objs width' height' cam
     _ ->
       error $ "Usage: render <scene> <width> <height>"
