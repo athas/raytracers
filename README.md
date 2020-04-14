@@ -49,7 +49,7 @@ Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 [F#](fsharp/)             | 0.4ms |  826ms |  5.6ms |  434ms
 [Futhark (GPU)](futhark/) | 5.5ms |   30ms |  5.8ms |   16ms
 [Futhark (CPU)](futhark/) | 5.6ms |  247ms | 13.9ms |  136ms
-[Haskell](haskell/)       | 0.3ms | 1842ms | 10.6ms | 2062ms
+[Haskell](haskell/)       | 0.6ms |  425ms | 10.6ms |  214ms
 [MPL][mpl]                | 0.4ms |  341ms |  9.4ms |  112ms
 [OCaml](ocaml/)           | 1.3ms |  723ms |   15ms |  240ms
 [Rust](rust/)             | 0.5ms |  248ms |  0.7ms |   99ms
@@ -61,7 +61,10 @@ Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 
 The Haskell implementation uses the `Strict` language pragma to
 disable laziness in the core modules.  This has about 1.5-2x impact on
-the run-time.
+the run-time.  The
+[massiv](https://hackage.haskell.org/package/massiv-0.5.1.0) library
+is used for parallel arrays and is the source of most of the
+performance.
 
 After a few false starts, F# runs quite fast when using .NET Core.
 The main tricks appear to be [using inline functions and explicit
@@ -94,11 +97,15 @@ Rust is the fastest CPU language.  This is not terribly surprising, as
 it has a mature compiler, and its default behaviour of unboxing
 everything is exactly what you need for this program.
 
-It is interesting that, with the exception of Rust, the fastest
-implementations are all from exotic or experimental language
-implementations.  Considering how long both functional and parallel
-programming has existed, it's surprising that the *relatively
-mainstream* languages don't do better.
+What is not visible from the above table is that most of the
+implementations were significantly slower in their original
+formulation.  Only Futhark, MPL, and Rust are essentially unchanged
+from their first straightforward implementation.  For the others, most
+of the performance comes down to various low-level tweaks, in
+particular avoiding boxing and allocations.  This is not exactly
+unexpected, but I still find it sad that when it comes to performance
+in functional languages, we must think about the *compiler* more than
+we think about the *language*.
 
 ## See also
 

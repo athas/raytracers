@@ -30,10 +30,10 @@ cabal build --enable-benchmarks
 ```
 
 For running the programs, use `cabal run`.  For example, to generate
-a 400x400 image of the "rgbbox" scene:
+a 400x400 image of the "rgbbox" scene as `rgbbox.png`:
 
 ```
-cabal run -v0 ray -- rgbbox 400 400 > out.ppm
+cabal run -v0 ray -- rgbbox 400 400
 ```
 
 For running the benchmarks:
