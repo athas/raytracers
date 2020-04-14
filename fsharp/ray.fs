@@ -407,19 +407,25 @@ let main argv =
         | s -> failwith ("No such scene: " + s)
     printfn "Using scene '%s' (-s to switch)." sceneName
 
-    printfn "Timing over average of %d runs (-r to change)." runs
+    printfn "Using %d warmup runs before benchmarking (-r to change)." runs
 
     let w = Stopwatch()
 
-    w.Restart()
-    let struct (objs, cam) = repeat runs (fun () -> fromScene width height scene)
-    w.Stop()
-    printfn "Scene BVH construction in %fs." (w.Elapsed.TotalSeconds / float runs)
+    // Warmup
+    repeat runs (fun () -> fromScene width height scene) |> ignore
 
     w.Restart()
-    let result = repeat runs (fun () -> render objs width height cam)
+    let struct (objs, cam) = fromScene width height scene
     w.Stop()
-    printfn "Rendering in %fs." (w.Elapsed.TotalSeconds / float runs)
+    printfn "Scene BVH construction in %fs." w.Elapsed.TotalSeconds
+
+    // Warmup
+    repeat runs (fun () -> render objs width height cam) |> ignore
+
+    w.Restart()
+    let result = render objs width height cam
+    w.Stop()
+    printfn "Rendering in %fs." w.Elapsed.TotalSeconds
 
     match imgfile with
     | None ->
