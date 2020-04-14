@@ -244,7 +244,7 @@ let inline scatter r hit =
     let scattered = { Origin = hit.P; Dir = reflected }
     
     if dot scattered.Dir hit.Normal > 0.0f then
-        ValueSome (scattered, hit.Colour)
+        ValueSome struct (scattered, hit.Colour)
     else
         ValueNone
 
