@@ -5,9 +5,9 @@ open System.Threading.Tasks
 
 [<Struct>]
 type Vec3 =
-    { X: float
-      Y: float
-      Z: float }
+    { X: float32
+      Y: float32
+      Z: float32 }
 
 let inline vecAdd v1 v2 =
     { X = v1.X + v2.X
@@ -40,7 +40,7 @@ let inline norm v =
     |> sqrt
 
 let inline normalise v =
-    scale (1.0 / norm v) v
+    scale (1.0f / norm v) v
 
 let inline cross v1 v2 =
     { X=v1.Y*v2.Z-v1.Z*v2.Y
@@ -121,8 +121,8 @@ type Pos = Vec3
 type Dir = Vec3
 type Colour = Vec3
 
-let black = { X=0.0; Y=0.0; Z=0.0 }
-let white = { X=1.0; Y=1.0; Z=1.0 }
+let black = { X=0.0f; Y=0.0f; Z=0.0f }
+let white = { X=1.0f; Y=1.0f; Z=1.0f }
 
 [<Struct>]
 type Ray = { Origin: Pos; Dir: Dir }
@@ -132,7 +132,7 @@ let pointAtParam ray t =
 
 [<Struct>]
 type Hit =
-    { T: float
+    { T: float32
       P: Pos
       Normal: Dir
       Colour: Colour }
@@ -141,7 +141,7 @@ type Hit =
 type Sphere =
     { Pos: Pos
       Colour: Colour
-      Radius: float }
+      Radius: float32 }
 
 let inline sphereAABB s =
     { Min = vecSub s.Pos { X=s.Radius; Y=s.Radius; Z=s.Radius }
@@ -158,11 +158,11 @@ let inline spehreHit s r tMin tMax =
             let hit =
                 { T = temp
                   P = pointAtParam r temp
-                  Normal = scale (1.0/s.Radius) (vecSub (pointAtParam r temp) s.Pos)
+                  Normal = scale (1.0f/s.Radius) (vecSub (pointAtParam r temp) s.Pos)
                   Colour = s.Colour }
             ValueSome hit
         else ValueNone
-    if discriminant <= 0.0 then
+    if discriminant <= 0.0f then
         ValueNone
     else
         match f ((-b - sqrt(b*b-a*c))/a) with
@@ -171,10 +171,10 @@ let inline spehreHit s r tMin tMax =
 
 let inline aabbHit aabb r tmin0 tmax0 =
     let inline iter min' max' origin' dir' tmin' tmax' =
-        let invD = 1.0 / dir'
+        let invD = 1.0f / dir'
         let t0 = (min' - origin') * invD
         let t1 = (max' - origin') * invD
-        let struct (t0', t1') = if invD < 0.0 then struct (t1, t0) else struct (t0, t1)
+        let struct (t0', t1') = if invD < 0.0f then struct (t1, t0) else struct (t0, t1)
         let tmin'' = max t0' tmin'
         let tmax'' = min t1' tmax'
         struct (tmin'', tmax'')
@@ -216,8 +216,8 @@ type Camera =
       Vertical: Dir }
 
 let inline camera lookfrom lookat vup vfov aspect =
-    let theta = vfov * Math.PI / 180.0
-    let halfHeight = tan (theta / 2.0)
+    let theta = vfov * MathF.PI / 180.0f
+    let halfHeight = tan (theta / 2.0f)
     let halfWidth = aspect * halfHeight
     let origin = lookfrom
     let w = normalise (vecSub lookfrom lookat)
@@ -228,8 +228,8 @@ let inline camera lookfrom lookat vup vfov aspect =
       LLC = vecSub
              (vecSub (vecSub origin (scale halfWidth u))
                      (scale halfHeight v)) w
-      Horizontal = scale (2.0*halfWidth) u
-      Vertical = scale (2.0*halfHeight) v }
+      Horizontal = scale (2.0f*halfWidth) u
+      Vertical = scale (2.0f*halfHeight) v }
 
 let inline getRay cam s t =
     { Origin = cam.Origin
@@ -237,19 +237,19 @@ let inline getRay cam s t =
                     cam.Origin }
 
 let inline reflect v n =
-    vecSub v (scale (2.0 * dot v n) n)
+    vecSub v (scale (2.0f * dot v n) n)
 
 let inline scatter r hit =
     let reflected = reflect (normalise r.Dir) hit.Normal
     let scattered = { Origin = hit.P; Dir = reflected }
     
-    if dot scattered.Dir hit.Normal > 0.0 then
+    if dot scattered.Dir hit.Normal > 0.0f then
         ValueSome (scattered, hit.Colour)
     else
         ValueNone
 
 let rec rayColour objs r depth =
-    match objsHit objs r 0.001 1000000000.0 with
+    match objsHit objs r 0.001f 1000000000.0f with
     | ValueSome hit ->
         match scatter r hit with
         | ValueSome (scattered, attenuation) ->
@@ -260,20 +260,20 @@ let rec rayColour objs r depth =
          | ValueNone -> black
     | ValueNone ->
         let unitDir = normalise r.Dir
-        let t = 0.5 * (unitDir.Y + 1.0)
-        let bg = { X=0.5; Y=0.7; Z=1.0 }
-        vecAdd (scale (1.0-t) white) (scale t bg)
+        let t = 0.5f * (unitDir.Y + 1.0f)
+        let bg = { X=0.5f; Y=0.7f; Z=1.0f }
+        vecAdd (scale (1.0f-t) white) (scale t bg)
 
 let inline traceRay objs width height cam j i =
-    let u = float i / float width
-    let v = float j / float height
+    let u = float32 i / float32 width
+    let v = float32 j / float32 height
     let ray = getRay cam u v
     rayColour objs ray 0
 
 let colorToPixel p =
-    let ir = int (255.99 * p.X)
-    let ig = int (255.99 * p.Y)
-    let ib = int (255.99 * p.Z)
+    let ir = int (255.99f * p.X)
+    let ig = int (255.99f * p.Y)
+    let ib = int (255.99f * p.Z)
     struct (ir, ig, ib)
 
 [<Struct>]
@@ -310,73 +310,73 @@ let inline render objs width height cam =
 type Scene =
     { LookFrom: Pos
       LookAt: Pos
-      FOV: float
+      FOV: float32
       Spheres: Sphere [] }
 
 let inline fromScene width height scene =
     struct (mkBvh sphereAABB scene.Spheres,
-            camera scene.LookFrom scene.LookAt { X=0.0; Y=1.0; Z=0.0 } scene.FOV (float width/float height))
+            camera scene.LookFrom scene.LookAt { X=0.0f; Y=1.0f; Z=0.0f } scene.FOV (float32 width/float32 height))
 
 let inline tabulate2D m n f =
     Array.collect (fun j -> Array.map (fun i -> f (j, i)) ([| 0 .. n-1 |])) ([| 0 .. m-1|])
 
 let rgbbox : Scene =
     let n = 10
-    let k = 60.0
+    let k = 60.0f
 
     let leftwall =
         tabulate2D n n (fun (y, z) ->
-                            { Pos={X=(-k/2.0);
-                                   Y=(-k/2.0 + (k/float n) * float y);
-                                   Z=(-k/2.0 + (k/float n) * float z)}
-                              Colour={X=1.0; Y=0.0; Z=0.0}
-                              Radius = (k/(float n*2.0))})
+                            { Pos={X=(-k/2.0f);
+                                   Y=(-k/2.0f + (k/float32 n) * float32 y);
+                                   Z=(-k/2.0f + (k/float32 n) * float32 z)}
+                              Colour={X=1.0f; Y=0.0f; Z=0.0f}
+                              Radius = (k/(float32 n*2.0f))})
 
     let midwall =
         tabulate2D n n (fun (x,y) ->
-                            { Pos={X=(-k/2.0 + (k/float n) * float x);
-                                   Y=(-k/2.0 + (k/float n) * float y);
-                                   Z=(-k/2.0)}
-                              Colour={X=1.0; Y=1.0; Z=0.0}
-                              Radius = (k/(float n*2.0))})
+                            { Pos={X=(-k/2.0f + (k/float32 n) * float32 x);
+                                   Y=(-k/2.0f + (k/float32 n) * float32 y);
+                                   Z=(-k/2.0f)}
+                              Colour={X=1.0f; Y=1.0f; Z=0.0f}
+                              Radius = (k/(float32 n*2.0f))})
 
     let rightwall =
         tabulate2D n n (fun (y,z) ->
-                            { Pos={X=(k/2.0);
-                                   Y=(-k/2.0 + (k/float n) * float y);
-                                   Z=(-k/2.0 + (k/float n) * float z)}
-                              Colour={X=0.0; Y=0.0; Z=1.0}
-                              Radius = (k/(float n*2.0))})
+                            { Pos={X=(k/2.0f);
+                                   Y=(-k/2.0f + (k/float32 n) * float32 y);
+                                   Z=(-k/2.0f + (k/float32 n) * float32 z)}
+                              Colour={X=0.0f; Y=0.0f; Z=1.0f}
+                              Radius = (k/(float32 n*2.0f))})
 
 
     let bottom =
         tabulate2D n n (fun (x,z) ->
-                            { Pos={X=(-k/2.0 + (k/float n) * float x);
-                                   Y=(-k/2.0);
-                                   Z=(-k/2.0 + (k/float n) * float z)}
-                              Colour={X=1.0; Y=1.0; Z=1.0}
-                              Radius = (k/(float n*2.0))})
+                            { Pos={X=(-k/2.0f + (k/float32 n) * float32 x);
+                                   Y=(-k/2.0f);
+                                   Z=(-k/2.0f + (k/float32 n) * float32 z)}
+                              Colour={X=1.0f; Y=1.0f; Z=1.0f}
+                              Radius = (k/(float32 n*2.0f))})
 
 
     { Spheres =  [| yield! leftwall; yield! midwall; yield! rightwall; yield! bottom |]
-      LookFrom = {X=0.0; Y=30.0; Z=30.0}
-      LookAt = {X=0.0; Y= -1.0; Z= -1.0}
-      FOV = 75.0 }
+      LookFrom = {X=0.0f; Y=30.0f; Z=30.0f}
+      LookAt = {X=0.0f; Y= -1.0f; Z= -1.0f}
+      FOV = 75.0f }
 
 let irreg : Scene =
     let n = 100
-    let k = 600.0
+    let k = 600.0f
     let bottom =
         tabulate2D n n (fun (x,z) ->
-                            { Pos={X=(-k/2.0 + (k/float n) * float x);
-                                   Y=0.0;
-                                   Z=(-k/2.0 + (k/float n) * float z)}
+                            { Pos={X=(-k/2.0f + (k/float32 n) * float32 x);
+                                   Y=0.0f;
+                                   Z=(-k/2.0f + (k/float32 n) * float32 z)}
                               Colour = white
-                              Radius = k/(float n * 2.0)})
+                              Radius = k/(float32 n * 2.0f)})
     { Spheres = bottom
-      LookFrom = { X=0.0; Y=12.0; Z=30.0 }
-      LookAt = { X=0.0; Y=10.0; Z= -1.0 }
-      FOV = 75.0 }
+      LookFrom = { X=0.0f; Y=12.0f; Z=30.0f }
+      LookAt = { X=0.0f; Y=10.0f; Z= -1.0f }
+      FOV = 75.0f }
 
 let rec getopt needle argv f def =
     match argv with
