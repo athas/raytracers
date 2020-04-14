@@ -309,7 +309,7 @@ impl<T> Bvh<T> {
             } else if xs.len() == 1 {
                 Bvh::Leaf(xs[0].to_aabb(), xs[0].clone())
             } else {
-                xs.sort_by(|a, b| {
+                xs.par_sort_by(|a, b| {
                     let (a_, b_) = match d % 3 {
                         0 => (a.to_aabb().centre().x, b.to_aabb().centre().x),
                         1 => (a.to_aabb().centre().y, b.to_aabb().centre().y),
