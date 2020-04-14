@@ -147,7 +147,7 @@ let inline sphereAABB s =
     { Min = vecSub s.Pos { X=s.Radius; Y=s.Radius; Z=s.Radius }
       Max = vecAdd s.Pos { X=s.Radius; Y=s.Radius; Z=s.Radius } }
 
-let inline spehreHit s r tMin tMax =
+let inline sphereHit s r tMin tMax =
     let oc = vecSub r.Origin s.Pos
     let a = dot r.Dir r.Dir
     let b = dot oc r.Dir
@@ -195,7 +195,7 @@ let inline aabbHit aabb r tmin0 tmax0 =
 let rec objsHit bvh r tMin tMax =
     match bvh with
     | (BvhLeaf (_, s)) ->
-        spehreHit s r tMin tMax
+        sphereHit s r tMin tMax
     | (BvhSplit (box, left, right)) ->
         if not (aabbHit box r tMin tMax) then
             ValueNone
@@ -279,7 +279,7 @@ let colorToPixel p =
 [<Struct>]
 type Image =
     { Pixels: struct(int * int * int) []
-      Heigt: int
+      Height: int
       Width: int }
 
 let inline image2ppm img =
@@ -289,7 +289,7 @@ let inline image2ppm img =
                   string g + " " +
                   string b + "\n")
     ignore (sb.Append("P3\n" +
-                      string img.Width + " " + string img.Heigt + "\n" +
+                      string img.Width + " " + string img.Height + "\n" +
                       "255\n"))
     for pixel in img.Pixels do ignore (onPixel pixel)
     sb.ToString()
@@ -303,7 +303,7 @@ let inline render objs width height cam =
     let pixels = Array.Parallel.init (height*width) pixel
     
     { Width = width
-      Heigt = height
+      Height = height
       Pixels = pixels }
 
 [<Struct>]
