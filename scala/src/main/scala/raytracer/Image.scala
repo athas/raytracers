@@ -9,7 +9,7 @@ final case class Image(width: Int, height: Int, pixels: Image.PixelData) {
 
     (Seq("P3", s"$width $height", "255") ++
       pixels.map(pixel2ppm))
-        .mkString("\n")
+        .mkString("\n") + "\n"
   }
 }
 
