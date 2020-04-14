@@ -433,3 +433,7 @@ $RECYCLE.BIN/
 !.vscode/extensions.json
 
 **/.ionide/
+
+*.ppm
+ray.exe
+ray.exe.so

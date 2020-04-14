@@ -385,12 +385,21 @@ let rec getopt needle argv f def =
         then f x else getopt needle (x::xs) f def
     | _ -> def
 
+// Call a function 'n' times.  Let's hope the compiler doesn't
+// optimise away the repeated applications.
+let rec repeat n f =
+    match n with
+    | 1 -> f ()
+    | n -> let _ = f () in repeat (n-1) f
+
 [<EntryPoint>]
 let main argv =
     let height = getopt "-m" (Array.toList argv) int 200
     let width = getopt "-n" (Array.toList argv) int 200
     let imgfile = getopt "-f" (Array.toList argv) Some None
     let sceneName = getopt "-s" (Array.toList argv) id "rgbbox"
+    let runs = getopt "-r" (Array.toList argv) int 10
+
     let scene =
         match sceneName with
         | "rgbbox" -> rgbbox
@@ -398,17 +407,19 @@ let main argv =
         | s -> failwith ("No such scene: " + s)
     printfn "Using scene '%s' (-s to switch)." sceneName
 
+    printfn "Timing over average of %d runs (-r to change)." runs
+
     let w = Stopwatch()
 
     w.Restart()
-    let struct (objs, cam) = fromScene width height scene
+    let struct (objs, cam) = repeat runs (fun () -> fromScene width height scene)
     w.Stop()
-    printfn "Scene BVH construction in %fs." w.Elapsed.TotalSeconds
+    printfn "Scene BVH construction in %fs." (w.Elapsed.TotalSeconds / float runs)
 
     w.Restart()
-    let result = render objs width height cam
+    let result = repeat runs (fun () -> render objs width height cam)
     w.Stop()
-    printfn "Rendering in %fs." w.Elapsed.TotalSeconds
+    printfn "Rendering in %fs." (w.Elapsed.TotalSeconds / float runs)
 
     match imgfile with
     | None ->
