@@ -46,7 +46,7 @@ numbers within the same column.**
 
 Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
-[F#](fsharp/)             |  10ms |  716ms |   14ms |  363ms
+[F#](fsharp/)             | 0.4ms |  826ms |  5.6ms |  434ms
 [Futhark (GPU)](futhark/) | 5.5ms |   30ms |  5.8ms |   16ms
 [Futhark (CPU)](futhark/) | 5.6ms |  247ms | 13.9ms |  136ms
 [Haskell](haskell/)       | 0.3ms | 1842ms | 10.6ms | 2062ms
@@ -63,7 +63,7 @@ The Haskell implementation uses the `Strict` language pragma to
 disable laziness in the core modules.  This has about 1.5-2x impact on
 the run-time.
 
-After a few false starts, F# runs quite fast when using .NET Core 2.1.
+After a few false starts, F# runs quite fast when using .NET Core.
 The main tricks appear to be [using inline functions and explicit
 value types](https://github.com/athas/raytracers/pull/12).
 
