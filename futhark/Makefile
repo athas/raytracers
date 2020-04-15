@@ -17,13 +17,13 @@ endif
 
 all: rgbbox_1000.ppm irreg_1000.ppm
 
-main: main.c ray.h ray.o
+main: main.c ray.c ray.o
 	$(CC) -o main $(CFLAGS) $(LDFLAGS) main.c ray.o -Wall -Wextra -pedantic
 
-ray.o: ray.h ray.c
+ray.o: ray.c
 	$(CC) -c $(CFLAGS) ray.c
 
-ray.h ray.c: *.fut
+ray.c: *.fut
 	futhark $(FUTHARK_BACKEND) --library ray.fut
 
 rgbbox_1000.ppm: main
