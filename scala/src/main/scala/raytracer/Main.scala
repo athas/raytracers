@@ -17,8 +17,8 @@ object Main extends App {
     (Scene.rgbbox, 1000, 1000)
   })
 
-  val (objs, cam) = time("Constructing the scene took", 100, scene.toObjsCam(width, height))
-  val out = time("Rendering took", 5, render(objs, width, height, cam))
+  val (objs, cam) = scene.toObjsCam(width, height)
+  val out = render(objs, width, height, cam)
 
   import java.io._
   val pw = new PrintWriter(new File("out.ppm"))
