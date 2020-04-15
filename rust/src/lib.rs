@@ -291,7 +291,7 @@ impl ToAabb for Sphere {
 }
 
 impl<T> Bvh<T> {
-    fn new(all_objs: &mut [T]) -> Self
+    fn new(all_objs: &[T]) -> Self
     where
         T: Send + ToAabb + Clone,
     {
@@ -324,7 +324,9 @@ impl<T> Bvh<T> {
             }
         }
 
-        helper(0, all_objs.len(), all_objs)
+        let mut all_objs_ = Vec::from(all_objs);
+
+        helper(0, all_objs.len(), &mut all_objs_)
     }
 }
 
@@ -442,9 +444,9 @@ pub struct Scene {
     spheres: Vec<Sphere>,
 }
 
-pub fn from_scene(width: i32, height: i32, scene: &mut Scene) -> (Objs, Camera) {
+pub fn from_scene(width: i32, height: i32, scene: &Scene) -> (Objs, Camera) {
     (
-        Bvh::new(&mut scene.spheres),
+        Bvh::new(&scene.spheres),
         Camera::new(
             &scene.cam_look_from,
             &scene.cam_look_at,
