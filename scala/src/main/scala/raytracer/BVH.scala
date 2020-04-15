@@ -55,7 +55,7 @@ object BVH {
             .splitAt(n / 2)
         def doLeft() = go(d+1, (n/2), xsLeft)
         def doRight() = go(d+1, n-n/2, xsRight)
-        val (left, right) = if(d > maxDepth) {
+        val (left, right) = if(d > maxDepth || n < 100) {
           (doLeft(), doRight())
         } else {
           val l = Future { doLeft() }
