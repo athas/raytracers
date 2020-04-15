@@ -645,7 +645,7 @@ fn main(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         render(&objs, args.width, args.height, &cam);
     }
     let result = render(&objs, args.width, args.height, &cam);
-    let duration = start.elapsed();
+    let duration = start.elapsed()/args.runs.try_into().unwrap();
 
     println!("Rendering in {:?}", duration);
 
