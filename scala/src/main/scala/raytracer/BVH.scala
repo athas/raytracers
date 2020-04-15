@@ -41,6 +41,8 @@ final case class Split[A](aabb: AABB, left: BVH[A], right: BVH[A]) extends BVH[A
 
 object BVH {
   import scala.math.Ordering.Double.IeeeOrdering
+  val cores = Runtime.getRuntime().availableProcessors()
+  val maxDepth = (Math.log(cores)/Math.log(2)).toInt
 
   def apply[A](f: A => AABB, allObjs: List[A])(implicit ec: ExecutionContext): BVH[A] = {
 
@@ -53,7 +55,7 @@ object BVH {
             .splitAt(n / 2)
         def doLeft() = go(d+1, (n/2), xsLeft)
         def doRight() = go(d+1, n-n/2, xsRight)
-        val (left, right) = if(d > 3) {
+        val (left, right) = if(d > maxDepth) {
           (doLeft(), doRight())
         } else {
           val l = Future { doLeft() }
