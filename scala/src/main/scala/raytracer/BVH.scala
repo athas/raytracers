@@ -27,10 +27,7 @@ final case class AABB(min: Vec3, max: Vec3) {
     }
 
   @inline def centre: Vec3 =
-    Vec3( min.x + max.x - min.x
-        , min.y + max.y - min.y
-        , min.z + max.z - min.z
-        )
+    Vec3(max.x,  max.y,  max.z)
 }
 
 sealed abstract class BVH[A] extends Product with Serializable {
@@ -56,7 +53,7 @@ object BVH {
             .splitAt(n / 2)
         def doLeft() = go(d+1, (n/2), xsLeft)
         def doRight() = go(d+1, n-n/2, xsRight)
-        val (left, right) = if(n < 100) {
+        val (left, right) = if(d > 3) {
           (doLeft(), doRight())
         } else {
           val l = Future { doLeft() }
