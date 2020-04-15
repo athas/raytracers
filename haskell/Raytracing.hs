@@ -87,17 +87,18 @@ aabbHit aabb (Ray origin direction) tmin0 tmax0 =
         (vecX (aabbMin aabb)) (vecX (aabbMax aabb))
         (vecX origin) (vecX direction)
         tmin0 tmax0
-  in if tmax1 <= tmin1 then False
-     else let (tmin2, tmax2) =
-                iter (vecY (aabbMin aabb)) (vecY (aabbMax aabb))
-                (vecY origin) (vecY direction)
-                tmin1 tmax1
-          in if tmax2 <= tmin2 then False
-             else let (tmin3, tmax3) =
-                        iter (vecZ (aabbMin aabb)) (vecZ (aabbMax aabb))
-                        (vecZ origin) (vecZ direction)
-                        tmin2 tmax2
-                  in not (tmax3 <= tmin3)
+  in not $
+     tmax1 <= tmin1 ||
+     let (tmin2, tmax2) =
+           iter (vecY (aabbMin aabb)) (vecY (aabbMax aabb))
+           (vecY origin) (vecY direction)
+           tmin1 tmax1
+     in tmax2 <= tmin2 ||
+        let (tmin3, tmax3) =
+              iter (vecZ (aabbMin aabb)) (vecZ (aabbMax aabb))
+              (vecZ origin) (vecZ direction)
+              tmin2 tmax2
+        in tmax3 <= tmin3
 
 objsHit :: Objs -> Ray -> Float -> Float -> Maybe Hit
 objsHit (BVHLeaf _ sphere) r t_min t_max =
