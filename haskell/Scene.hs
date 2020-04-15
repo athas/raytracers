@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 module Scene (Scene(..), fromScene,
               rgbbox, irreg) where
 
@@ -25,36 +26,39 @@ rgbbox = Scene { sceneSpheres = leftwall ++ midwall ++ rightwall ++ bottom
                , sceneCamFov = 75 }
   where n = 10
         k = 60
+        k2 = -k / 2
+        kn = k / n
+        kn2 = kn / 2
         leftwall =
           [ Sphere (Vec3
-                    (-k/2)
-                    (-k/2 + (k/n) * y)
-                    (-k/2 + (k/n) * z))
-            (Vec3 1 0 0) (k/(n*2))
+                     k2
+                    (k2 + kn * y)
+                    (k2 + kn * z))
+            (Vec3 1 0 0) kn2
           | y <- [0..n-1], z <- [0..n-1]
           ]
         midwall =
           [ Sphere (Vec3
-                     (-k/2 + (k/n) * x)
-                     (-k/2 + (k/n) * y)
-                     (-k/2))
-            (Vec3 0 1 0) (k/(n*2))
+                     (k2 + kn * x)
+                     (k2 + kn * y)
+                      k2)
+            (Vec3 0 1 0) kn2
           | x <- [0..n-1], y <- [0..n-1]
           ]
         rightwall =
           [ Sphere (Vec3
-                     (k/2)
-                     (-k/2 + (k/n) * y)
-                     (-k/2 + (k/n) * z))
-            (Vec3 0 0 1) (k/(n*2))
+                     (-k2)
+                     (k2 + kn * y)
+                     (k2 + kn * z))
+            (Vec3 0 0 1) kn2
           | y <- [0..n-1], z <- [0..n-1]
           ]
         bottom =
           [ Sphere (Vec3
-                     (-k/2 + (k/n) * x)
-                     (-k/2)
-                     (-k/2 + (k/n) * z))
-            (Vec3 1 1 1) (k/(n*2))
+                     (k2 + kn * x)
+                      k2
+                     (k2 + kn * z))
+            (Vec3 1 1 1) kn2
           | x <- [0..n-1], z <- [0..n-1]
           ]
 
@@ -65,11 +69,14 @@ irreg = Scene { sceneSpheres = bottom
               , sceneCamFov = 75 }
   where n = 100
         k = 600
+        k2 = -k / 2
+        kn = k / n
+        kn2 = kn / 2
         bottom =
           [ Sphere (Vec3
-                     (-k/2 + (k/n) * x)
+                     (k2 + kn * x)
                      0
-                     (-k/2 + (k/n) * z))
-            (Vec3 1 1 1) (k/(n*2))
+                     (k2 + kn * z))
+            (Vec3 1 1 1) kn2
           | x <- [0..n-1], z <- [0..n-1]
           ]

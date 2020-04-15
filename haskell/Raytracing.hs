@@ -55,6 +55,7 @@ sphereHit (Sphere center colour radius) r t_min t_max =
       b = dot oc (rayDir r)
       c = dot oc oc - radius*radius
       discriminant = b*b - a*c
+      sqrtDisc = sqrt discriminant
       tryHit temp =
         if temp < t_max && temp > t_min
         then Just $ Hit
@@ -66,9 +67,9 @@ sphereHit (Sphere center colour radius) r t_min t_max =
         else Nothing
   in if discriminant <= 0
      then Nothing
-     else case tryHit ((-b - sqrt(b*b-a*c))/a) of
+     else case tryHit ((-b - sqrtDisc)/a) of
             Just hit -> Just hit
-            Nothing -> tryHit ((-b + sqrt(b*b-a*c))/a)
+            Nothing -> tryHit ((-b + sqrtDisc)/a)
 
 type Objs = BVH Sphere
 
