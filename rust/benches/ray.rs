@@ -37,5 +37,5 @@ pub fn rgbbox_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, irreg_benchmark);
+criterion_group!(benches, irreg_benchmark, rgbbox_benchmark);
 criterion_main!(benches);
