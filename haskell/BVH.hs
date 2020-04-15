@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 module BVH
   ( AABB(..)
   , BVH(..)
