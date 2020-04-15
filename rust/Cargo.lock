@@ -228,6 +228,7 @@ dependencies = [
 name = "ray"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "paw",
  "rayon",
  "structopt",
