@@ -1,6 +1,6 @@
 package raytracer
 
-import Raytracer.{Pos, Sphere, Objs, Camera}
+import Raytracer.{Pos, Sphere, Camera, Objs}
 import scala.concurrent.ExecutionContext
 
 final case class Scene(camLookFrom: Pos, camLookAt: Pos, camFov: Double, spheres: List[Sphere]) {

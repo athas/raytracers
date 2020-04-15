@@ -13,3 +13,6 @@ irreg_1000.ppm: src/main/scala/raytracer/*
 clean:
 	sbt clean
 	rm -f *.ppm
+
+bench:
+	sbt clean bench
