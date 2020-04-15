@@ -315,10 +315,17 @@ impl<T> Bvh<T> {
                 });
 
                 let (xs_left, xs_right) = xs.split_at_mut(n / 2);
-                let (left, right) = rayon::join(
-                    || helper(d + 1, n / 2, xs_left),
-                    || helper(d + 1, n - (n / 2), xs_right),
-                );
+                let (left, right) = if n < 100 {
+                    (
+                        helper(d + 1, n / 2, xs_left),
+                        helper(d + 1, n - (n / 2), xs_right),
+                    )
+                } else {
+                    rayon::join(
+                        || helper(d + 1, n / 2, xs_left),
+                        || helper(d + 1, n - (n / 2), xs_right),
+                    )
+                };
                 let b = left.aabb().enclosing(right.aabb());
                 Bvh::Split(b, Box::new(left), Box::new(right))
             }
