@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate structopt;
 
+use std::convert::TryInto;
 use std::cmp::{Ordering, PartialOrd};
 use std::fs::File;
 use std::io;
@@ -320,10 +321,15 @@ impl<T> Bvh<T> {
                 });
 
                 let (xs_left, xs_right) = xs.split_at_mut(n / 2);
-                let (left, right) = rayon::join(
-                    || helper(d + 1, n / 2, xs_left),
-                    || helper(d + 1, n - (n / 2), xs_right),
-                );
+                let (left, right) =
+                    if n < 100 {
+                        (helper(d + 1, n / 2, xs_left),
+                         helper(d + 1, n - (n / 2), xs_right))
+                    } else {
+                        rayon::join(
+                            || helper(d + 1, n / 2, xs_left),
+                            || helper(d + 1, n - (n / 2), xs_right))
+                    };
                 let b = left.aabb().enclosing(right.aabb());
                 Bvh::Split(b, Box::new(left), Box::new(right))
             }
@@ -477,6 +483,10 @@ struct Args {
     /// The width
     width: i32,
 
+    #[structopt(short = "r", default_value = "10")]
+    /// The number of runs
+    runs: i32,
+
     #[structopt(short = "s", default_value = "rgbbox")]
     /// The scene to show. Possible values are 'rgbbox' and 'irreg'
     scene_name: String,
@@ -617,14 +627,23 @@ fn main(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("Using scene '{}'", args.scene_name);
+    println!("Timing over average of {} runs (-r to change).\n", args.runs);
 
     let start = Instant::now();
+    // Run a few times and hope for no dead code elimination.
+    for _ in 0..args.runs-1 {
+        from_scene(args.width, args.height, &mut scene);
+    }
     let (objs, cam) = from_scene(args.width, args.height, &mut scene);
-    let duration = start.elapsed();
+    let duration = start.elapsed()/args.runs.try_into().unwrap();
 
     println!("Scene BVH construction in {:?}", duration);
 
     let start = Instant::now();
+    // Run a few times and hope for no dead code elimination.
+    for _ in 0..args.runs-1 {
+        render(&objs, args.width, args.height, &cam);
+    }
     let result = render(&objs, args.width, args.height, &cam);
     let duration = start.elapsed();
 
