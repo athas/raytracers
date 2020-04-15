@@ -78,6 +78,11 @@ and performance is excellent.
 Multicore OCaml is also quite fast, and the code is likewise very
 clean.
 
+While the implementations are allowed to use single-precision floating
+point if they wish, the Scala implementation is actually [much faster
+when using double
+precision](https://github.com/athas/raytracers/pull/24).
+
 While Futhark is fast, the code is significantly longer and more
 complex.  This is particularly because of the BVH construction.  In
 all other implementations, the BVH is expressed as a straightforward
