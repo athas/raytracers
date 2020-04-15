@@ -19,7 +19,7 @@ final case class AABB(min: Vec3, max: Vec3) {
     AABB(small, big)
   }
 
-  @inline def axis(d: Int): Float =
+  @inline def axis(d: Int): Double =
     d % 3 match {
       case 0 => centre.x
       case 1 => centre.y
@@ -43,7 +43,7 @@ final case class Leaf[A](aabb: AABB, a: A) extends BVH[A]
 final case class Split[A](aabb: AABB, left: BVH[A], right: BVH[A]) extends BVH[A]
 
 object BVH {
-  import scala.math.Ordering.Float.IeeeOrdering
+  import scala.math.Ordering.Double.IeeeOrdering
 
   def apply[A](f: A => AABB, allObjs: List[A])(implicit ec: ExecutionContext): BVH[A] = {
 

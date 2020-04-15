@@ -6,7 +6,7 @@ object Raytracer extends App {
 
   type Pos = Vec3
   type Dir = Vec3
-  val pi = math.Pi.toFloat
+  val pi = math.Pi.toDouble
 
   type Color = Vec3
   val black: Color = Vec3(0, 0, 0)
@@ -14,10 +14,10 @@ object Raytracer extends App {
 
   final case class Ray(origin: Pos, dir: Dir) {
 
-    @inline def pointAtParam(t: Float): Pos = origin + dir.scale(t)
+    @inline def pointAtParam(t: Double): Pos = origin + dir.scale(t)
 
-    def aabbHit(aabb: AABB, tMin0: Float, tMax0: Float): Boolean = {
-      def go(min_ : Float, max_ : Float, origin_ : Float, dir_ : Float, tMin_ : Float, tMax_ : Float): (Float, Float) = {
+    def aabbHit(aabb: AABB, tMin0: Double, tMax0: Double): Boolean = {
+      def go(min_ : Double, max_ : Double, origin_ : Double, dir_ : Double, tMin_ : Double, tMax_ : Double): (Double, Double) = {
         val invD = 1f / dir_
         val t0 = (min_ - origin_) * invD
         val t1 = (max_ - origin_) * invD
@@ -39,19 +39,19 @@ object Raytracer extends App {
     }
 
   }
-  final case class Hit(t: Float, p: Pos, normal: Dir, color: Color)
-  final case class Sphere(pos: Pos, color: Color, radius: Float) {
+  final case class Hit(t: Double, p: Pos, normal: Dir, color: Color)
+  final case class Sphere(pos: Pos, color: Color, radius: Double) {
     def aabb: AABB = AABB(
       pos - Vec3(radius, radius, radius),
       pos + Vec3(radius, radius, radius))
 
-    def hit(ray: Ray, tMin: Float, tMax: Float): Option[Hit] = {
+    def hit(ray: Ray, tMin: Double, tMax: Double): Option[Hit] = {
       val oc = ray.origin - pos
       val a = ray.dir dot ray.dir
       val b = oc dot ray.dir
       val c = (oc dot oc) - radius * radius
       val discriminant = b*b - a*c
-      def tryHit(temp: Float) =
+      def tryHit(temp: Double) =
         if(temp < tMax && temp > tMin)
           Some(
             Hit( temp
@@ -62,9 +62,9 @@ object Raytracer extends App {
         else None
 
       if(discriminant <= 0) None
-      else tryHit((-b - math.sqrt(b*b - a*c).toFloat) / a) match {
+      else tryHit((-b - math.sqrt(b*b - a*c).toDouble) / a) match {
         case s: Some[Hit] => s
-        case None => tryHit((-b + math.sqrt(b*b - a*c).toFloat)/a)
+        case None => tryHit((-b + math.sqrt(b*b - a*c).toDouble)/a)
       }
     }
 
@@ -74,7 +74,7 @@ object Raytracer extends App {
 
   type Objs = BVH[Sphere]
 
-  def objsHit(objs: Objs, ray: Ray, tMin: Float, tMax: Float): Option[Hit] = objs match {
+  def objsHit(objs: Objs, ray: Ray, tMin: Double, tMax: Double): Option[Hit] = objs match {
     case Leaf(_, sphere) =>
       sphere.hit(ray, tMin, tMax)
     case Split(box, left, right) =>
@@ -88,9 +88,9 @@ object Raytracer extends App {
   final case class Camera(origin: Pos, llc: Pos, horizontal: Dir, vertical: Dir)
 
   object Camera {
-    def apply(lookFrom: Pos, lookAt: Pos, vUp: Dir, vFov: Float, aspect: Float): Camera = {
+    def apply(lookFrom: Pos, lookAt: Pos, vUp: Dir, vFov: Double, aspect: Double): Camera = {
       val theta = vFov * pi / 180f
-      val halfHeight = math.tan(theta / 2f).toFloat
+      val halfHeight = math.tan(theta / 2f).toDouble
       val halfWidth = aspect * halfHeight
       val origin = lookFrom
       val w = (lookFrom - lookAt).normalise
@@ -104,7 +104,7 @@ object Raytracer extends App {
     }
   }
 
-  def getRay(cam: Camera, s: Float, t: Float): Ray =
+  def getRay(cam: Camera, s: Double, t: Double): Ray =
     Ray( cam.origin
        , cam.llc + cam.horizontal.scale(s) + cam.vertical.scale(t) - cam.origin
        )
@@ -134,8 +134,8 @@ object Raytracer extends App {
   def traceRay(objs: Objs, width: Int, height: Int, camera: Camera, j: Int, i: Int): Color =
     rayColor(objs,
       getRay(camera,
-        i.toFloat / width.toFloat,
-        j.toFloat / height.toFloat), 0)
+        i.toDouble / width.toDouble,
+        j.toDouble / height.toDouble), 0)
 
   def colorToPixel(c: Color): Image.Pixel =
     ((255.99f * c.x).toByte, (255.99f * c.y).toByte, (255.99f * c.z).toByte)
