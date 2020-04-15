@@ -8,7 +8,7 @@ final case class Image(width: Int, height: Int, pixels: Image.PixelData) {
       s"${p._1 & 0xFF} ${p._2 & 0xFF} ${p._3 & 0xFF}"
 
     (Seq("P3", s"$width $height", "255") ++
-      pixels.par.map(pixel2ppm))
+      pixels.map(pixel2ppm))
         .mkString("\n") + "\n"
   }
 }
@@ -20,7 +20,7 @@ object Image {
   def apply(width: Int, height: Int, pixel: (Int, Int) => Pixel): Image = {
     val arr = ParSeq.tabulate(width * height)(n =>
         (height - n / height, n % width))
-    val pixelData = arr.par.map(pixel.tupled)
+    val pixelData = arr.map(pixel.tupled)
     Image(width, height, pixelData)
   }
 }
