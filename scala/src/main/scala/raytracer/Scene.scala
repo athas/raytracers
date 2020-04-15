@@ -18,48 +18,48 @@ object Scene {
 
   def rgbbox: Scene = {
     val n = 10
-    val k = 60f
+    val k = 60.0
     val leftwall = for {
       y <- 0 to n-1
       z <- 0 to n-1
     } yield 
-    Sphere( Vec3( -k/2f
-                , -k/2f + k/n * y
-                , -k/2f + k/n * z)
+    Sphere( Vec3( -k/2.0
+                , -k/2.0 + k/n * y
+                , -k/2.0 + k/n * z)
           , Vec3(1,0,0)
-          , k/(n * 2f)
+          , k/(n * 2.0)
           )
 
     val midwall = for {
       x <- 0 to n-1
       y <- 0 to n-1
     } yield 
-    Sphere( Vec3( -k/2f + k/n * x
-                , -k/2f + k/n * y
-                , -k/2f)
+    Sphere( Vec3( -k/2.0 + k/n * x
+                , -k/2.0 + k/n * y
+                , -k/2.0)
           , Vec3(0,1,0)
-          , k/(n * 2f)
+          , k/(n * 2.0)
           )
     val rightwall = for {
       y <- 0 to n-1
       z <- 0 to n-1
     } yield 
-    Sphere( Vec3( k/2f
-                , -k/2f + k/n * y
-                , -k/2f + k/n * z)
+    Sphere( Vec3(  k/2.0
+                , -k/2.0 + k/n * y
+                , -k/2.0 + k/n * z)
           , Vec3(0,0,1)
-          , k/(n * 2f)
+          , k/(n * 2.0)
           )
 
     val bottom = for {
       x <- 0 to n-1
       z <- 0 to n-1
     } yield
-    Sphere( Vec3( -k/2f + k/n * x
-                , -k/2f
-                , -k/2f + k/n * z)
+    Sphere( Vec3( -k/2.0 + k/n * x
+                , -k/2.0
+                , -k/2.0 + k/n * z)
           , Vec3(1,1,1)
-          , k/(n*2f)
+          , k/(n*2.0)
           )
 
     Scene( Vec3(0, 30, 30)
@@ -71,16 +71,16 @@ object Scene {
 
   def irreg: Scene = {
     val n = 100
-    val k = 600f
+    val k = 600.0
     val bottom = for {
       x <- 0 to n-1
       z <- 0 to n-1
     } yield
-    Sphere( Vec3( -k/2f + k/n * x
+    Sphere( Vec3( -k/2.0 + k/n * x
                 , 0
-                , -k/2f + k/n * z)
+                , -k/2.0 + k/n * z)
           , Vec3(1,1,1)
-          , k/(n*2.0f)
+          , k/(n*2.0)
           )
 
     Scene(Vec3(0, 12, 30), Vec3(0, 10, -1), 75, bottom.toList)
