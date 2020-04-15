@@ -127,7 +127,7 @@ let white = { X=1.0f; Y=1.0f; Z=1.0f }
 [<Struct>]
 type Ray = { Origin: Pos; Dir: Dir }
 
-let pointAtParam ray t =
+let inline pointAtParam ray t =
     vecAdd ray.Origin (scale t ray.Dir)
 
 [<Struct>]
@@ -147,7 +147,7 @@ let inline sphereAABB s =
     { Min = vecSub s.Pos { X=s.Radius; Y=s.Radius; Z=s.Radius }
       Max = vecAdd s.Pos { X=s.Radius; Y=s.Radius; Z=s.Radius } }
 
-let inline sphereHit s r tMin tMax =
+let sphereHit s r tMin tMax =
     let oc = vecSub r.Origin s.Pos
     let a = dot r.Dir r.Dir
     let b = dot oc r.Dir
@@ -160,14 +160,14 @@ let inline sphereHit s r tMin tMax =
                   P = pointAtParam r temp
                   Normal = scale (1.0f/s.Radius) (vecSub (pointAtParam r temp) s.Pos)
                   Colour = s.Colour }
-            ValueSome hit
-        else ValueNone
+            Some hit
+        else None
     if discriminant <= 0.0f then
-        ValueNone
+        None
     else
         match f ((-b - sqrt(b*b-a*c))/a) with
-        | ValueSome hit -> ValueSome hit
-        | ValueNone -> f ((-b + sqrt(b*b-a*c))/a)
+        | Some _ as x -> x
+        | None -> f ((-b + sqrt(b*b-a*c))/a)
 
 let inline aabbHit aabb r tmin0 tmax0 =
     let inline iter min' max' origin' dir' tmin' tmax' =
@@ -198,14 +198,14 @@ let rec objsHit bvh r tMin tMax =
         sphereHit s r tMin tMax
     | (BvhSplit (box, left, right)) ->
         if not (aabbHit box r tMin tMax) then
-            ValueNone
+            None
         else
             match objsHit left r tMin tMax with
-            | ValueSome h ->
+            | Some h as x ->
                 match objsHit right r tMin h.T with
-                | ValueNone -> ValueSome h
-                | ValueSome h' -> ValueSome h'
-            | ValueNone ->
+                | None -> x
+                | Some _ as x -> x
+            | None ->
                 objsHit right r tMin tMax
 
 [<Struct>]
@@ -215,7 +215,7 @@ type Camera =
       Horizontal: Dir
       Vertical: Dir }
 
-let inline camera lookfrom lookat vup vfov aspect =
+let camera lookfrom lookat vup vfov aspect =
     let theta = vfov * MathF.PI / 180.0f
     let halfHeight = tan (theta / 2.0f)
     let halfWidth = aspect * halfHeight
@@ -239,26 +239,20 @@ let inline getRay cam s t =
 let inline reflect v n =
     vecSub v (scale (2.0f * dot v n) n)
 
-let inline scatter r hit =
-    let reflected = reflect (normalise r.Dir) hit.Normal
-    let scattered = { Origin = hit.P; Dir = reflected }
-    
-    if dot scattered.Dir hit.Normal > 0.0f then
-        ValueSome struct (scattered, hit.Colour)
-    else
-        ValueNone
-
 let rec rayColour objs r depth =
     match objsHit objs r 0.001f 1000000000.0f with
-    | ValueSome hit ->
-        match scatter r hit with
-        | ValueSome (scattered, attenuation) ->
+    | Some hit ->
+        let scattered =
+            { Origin = hit.P;
+                Dir = reflect (normalise r.Dir) hit.Normal }
+        if dot scattered.Dir hit.Normal > 0.0f then
             if depth < 50 then
-                vecMul attenuation (rayColour objs scattered (depth+1))
-             else
+                vecMul hit.Colour (rayColour objs scattered (depth+1))
+            else
                 black
-         | ValueNone -> black
-    | ValueNone ->
+        else
+            black
+    | None ->
         let unitDir = normalise r.Dir
         let t = 0.5f * (unitDir.Y + 1.0f)
         let bg = { X=0.5f; Y=0.7f; Z=1.0f }
@@ -282,20 +276,9 @@ type Image =
       Height: int
       Width: int }
 
-let inline image2ppm img =
-    let sb = StringBuilder()
-    let inline onPixel (struct(r,g,b)) =
-        sb.Append(string r + " " +
-                  string g + " " +
-                  string b + "\n")
-    ignore (sb.Append("P3\n" +
-                      string img.Width + " " + string img.Height + "\n" +
-                      "255\n"))
-    for pixel in img.Pixels do ignore (onPixel pixel)
-    sb.ToString()
+let render objs width height cam =
+    let pixel l =
 
-let inline render objs width height cam =
-    let inline pixel l =
         let i = l % width
         let j = height - l / width
         colorToPixel (traceRay objs width height cam j i)
@@ -313,7 +296,7 @@ type Scene =
       FOV: float32
       Spheres: Sphere [] }
 
-let inline fromScene width height scene =
+let fromScene width height scene =
     struct (mkBvh sphereAABB scene.Spheres,
             camera scene.LookFrom scene.LookAt { X=0.0f; Y=1.0f; Z=0.0f } scene.FOV (float32 width/float32 height))
 
@@ -378,6 +361,18 @@ let irreg : Scene =
       LookAt = { X=0.0f; Y=10.0f; Z= -1.0f }
       FOV = 75.0f }
 
+let image2ppm img =
+    let sb = StringBuilder()
+    let onPixel (struct(r,g,b)) =
+        sb.Append(string r + " " +
+                  string g + " " +
+                  string b + "\n")
+    ignore (sb.Append("P3\n" +
+                      string img.Width + " " + string img.Height + "\n" +
+                      "255\n"))
+    for pixel in img.Pixels do ignore (onPixel pixel)
+    sb.ToString()
+
 let rec getopt needle argv f def =
     match argv with
     | opt::x::xs ->
@@ -398,16 +393,15 @@ let main argv =
     let width = getopt "-n" (Array.toList argv) int 200
     let imgfile = getopt "-f" (Array.toList argv) Some None
     let sceneName = getopt "-s" (Array.toList argv) id "rgbbox"
-    let runs = getopt "-r" (Array.toList argv) int 10
+    let runs = getopt "-r" (Array.toList argv) int 1
 
     let scene =
         match sceneName with
         | "rgbbox" -> rgbbox
         | "irreg" -> irreg
         | s -> failwith ("No such scene: " + s)
-    printfn "Using scene '%s' (-s to switch)." sceneName
-
-    printfn "Using %d warmup runs before benchmarking (-r to change)." runs
+    Console.WriteLine("Using scene '" + sceneName + "' (-s to switch).")
+    Console.WriteLine("Using " + runs.ToString() + " warmup runs before benchmarking (-r to change).")
 
     let w = Stopwatch()
 
@@ -417,7 +411,7 @@ let main argv =
     w.Restart()
     let struct (objs, cam) = fromScene width height scene
     w.Stop()
-    printfn "Scene BVH construction in %fs." w.Elapsed.TotalSeconds
+    Console.WriteLine("Scene BVH construction in " + w.Elapsed.TotalSeconds.ToString() + "s.")
 
     // Warmup
     repeat runs (fun () -> render objs width height cam) |> ignore
@@ -425,12 +419,12 @@ let main argv =
     w.Restart()
     let result = render objs width height cam
     w.Stop()
-    printfn "Rendering in %fs." w.Elapsed.TotalSeconds
+    Console.WriteLine("Rendering in " + w.Elapsed.TotalSeconds.ToString() + "s.")
 
     match imgfile with
     | None ->
-        printfn "-f not passed, so not writing image to file."
+        Console.WriteLine("-f not passed, so not writing image to file.")
     | Some imgfile' ->
-        printfn "Writing image to %s." imgfile';
+        Console.WriteLine("Writing image to " + imgfile' + ".")
         System.IO.File.WriteAllText(imgfile', image2ppm result)
     0
