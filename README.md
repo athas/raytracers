@@ -49,7 +49,7 @@ Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 [F#](fsharp/)             | 0.4ms |  826ms |  5.6ms |  434ms
 [Futhark (GPU)](futhark/) | 5.5ms |   30ms |  5.8ms |   16ms
 [Futhark (CPU)](futhark/) | 5.6ms |  247ms | 13.9ms |  136ms
-[Haskell](haskell/)       | 0.6ms |  425ms | 10.6ms |  214ms
+[Haskell](haskell/)       | 0.6ms |  372ms |  8.5ms |  195ms
 [MPL][mpl]                | 0.4ms |  341ms |  9.4ms |  112ms
 [OCaml](ocaml/)           | 1.3ms |  723ms |   15ms |  240ms
 [Rust](rust/)             | 0.1ms |  248ms |  1.1ms |   98ms
