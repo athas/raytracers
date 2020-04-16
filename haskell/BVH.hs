@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 module BVH
   ( AABB(..)
   , BVH(..)
@@ -53,10 +54,12 @@ mkBVH f all_objs = runPar $ mkBVH' (0::Int) (length all_objs) all_objs
   where mkBVH' _ _ [] = error "mkBVH: empty no nodes"
         mkBVH' _ _ [x] = return $ BVHLeaf (f x) x
         mkBVH' d n xs = do
-          let (xs_left, xs_right) =
-                splitAt (n `div` 2) $ sortBy (compare `on` comparison) xs
-              left = mkBVH' (d+1) (n `div` 2) xs_left
-              right = mkBVH' (d+1) (n-(n `div` 2)) xs_right
+          let n2 = n `div` 2
+              d1 = d + 1
+              (xs_left, xs_right) =
+                splitAt n2 $ sortBy (compare `on` comparison) xs
+              left = mkBVH' d1 n2 xs_left
+              right = mkBVH' d1 (n - n2) xs_right
           (left', right') <-
             if n < 100
             then (,) <$> left <*> right

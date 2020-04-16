@@ -55,6 +55,7 @@ sphereHit (Sphere center colour radius) r t_min t_max =
       b = dot oc (rayDir r)
       c = dot oc oc - radius*radius
       discriminant = b*b - a*c
+      sqrtDisc = sqrt discriminant
       tryHit temp =
         if temp < t_max && temp > t_min
         then Just $ Hit
@@ -66,9 +67,9 @@ sphereHit (Sphere center colour radius) r t_min t_max =
         else Nothing
   in if discriminant <= 0
      then Nothing
-     else case tryHit ((-b - sqrt(b*b-a*c))/a) of
+     else case tryHit ((-b - sqrtDisc)/a) of
             Just hit -> Just hit
-            Nothing -> tryHit ((-b + sqrt(b*b-a*c))/a)
+            Nothing -> tryHit ((-b + sqrtDisc)/a)
 
 type Objs = BVH Sphere
 
@@ -87,17 +88,18 @@ aabbHit aabb (Ray origin direction) tmin0 tmax0 =
         (vecX (aabbMin aabb)) (vecX (aabbMax aabb))
         (vecX origin) (vecX direction)
         tmin0 tmax0
-  in if tmax1 <= tmin1 then False
-     else let (tmin2, tmax2) =
-                iter (vecY (aabbMin aabb)) (vecY (aabbMax aabb))
-                (vecY origin) (vecY direction)
-                tmin1 tmax1
-          in if tmax2 <= tmin2 then False
-             else let (tmin3, tmax3) =
-                        iter (vecZ (aabbMin aabb)) (vecZ (aabbMax aabb))
-                        (vecZ origin) (vecZ direction)
-                        tmin2 tmax2
-                  in not (tmax3 <= tmin3)
+  in not $
+     tmax1 <= tmin1 ||
+     let (tmin2, tmax2) =
+           iter (vecY (aabbMin aabb)) (vecY (aabbMax aabb))
+           (vecY origin) (vecY direction)
+           tmin1 tmax1
+     in tmax2 <= tmin2 ||
+        let (tmin3, tmax3) =
+              iter (vecZ (aabbMin aabb)) (vecZ (aabbMax aabb))
+              (vecZ origin) (vecZ direction)
+              tmin2 tmax2
+        in tmax3 <= tmin3
 
 objsHit :: Objs -> Ray -> Float -> Float -> Maybe Hit
 objsHit (BVHLeaf _ sphere) r t_min t_max =
