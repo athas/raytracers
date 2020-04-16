@@ -2,6 +2,9 @@
 
 (in-package #:ray)
 
+;; This is where we specify how many parallel kernels to run
+(setf lparallel:*kernel* (lparallel:make-kernel 100))
+
 (defun vec3-x (v) (first v))
 
 (defun vec3-y (v) (second v))
@@ -131,38 +134,38 @@
 (defun bvh-aabb (bvh) (second bvh))
 
 (defun make-bvh (to-aabb all-objs)
-  (labels ((mk (d n xs)
-               (cond
-                ((null xs) (error "mk_bvh: no nodes"))
-                ((= 1 (length xs)) (list 'leaf (funcall to-aabb (first xs)) (first xs)))
-                (t
-                 (let*
-                     ((xs-sorted
-                        ;; TODO: Parallelise
-                        (sort xs
-                              (lambda (a b)
-                                (let ((axis
-                                        (cond
-                                          ((= (mod d 3) 0) #'vec3-x)
-                                          ((= (mod d 3) 1) #'vec3-y)
-                                          (t #'vec3-z))))
-                                  (< (funcall axis (centre (funcall to-aabb a)))
-                                     (funcall axis (centre (funcall to-aabb b))))))))
-                      (xs-left (subseq xs-sorted 0 (floor n 2)))
-                      (xs-right (subseq xs-sorted (floor n 2)))
-                      (do-left (lambda () (mk (1+ d) (floor n 2) xs-left)))
-                      (do-right (lambda () (mk (1+ d) (- n (floor n 2)) xs-right)))
-                      (both
-                       (if (< n 100)
-                           (cons (funcall do-left)
-                                 (funcall do-right))
-                         ;; TODO: Parallelise
-                         (cons (funcall do-left)
-                               (funcall do-right))))
-                      (box (enclosing (bvh-aabb (car both))
-                                      (bvh-aabb (cdr both)))))
-                   (list 'split box (car both) (cdr both)))))))
-    (mk 0 (length all-objs) all-objs)))
+  (lparallel:defpun mk (d n xs)
+    (cond
+      ((null xs) (error "mk_bvh: no nodes"))
+      ((= 1 (length xs)) (list 'leaf (funcall to-aabb (first xs)) (first xs)))
+      (t
+       (let*
+           ((xs-sorted
+              (lparallel:psort xs
+                               (lambda (a b)
+                                 (let ((axis
+                                         (cond
+                                           ((= (mod d 3) 0) #'vec3-x)
+                                           ((= (mod d 3) 1) #'vec3-y)
+                                           (t #'vec3-z))))
+                                   (< (funcall axis (centre (funcall to-aabb a)))
+                                      (funcall axis (centre (funcall to-aabb b))))))))
+            (xs-left (subseq xs-sorted 0 (floor n 2)))
+            (xs-right (subseq xs-sorted (floor n 2)))
+            (do-left (lambda () (mk (1+ d) (floor n 2) xs-left)))
+            (do-right (lambda () (mk (1+ d) (- n (floor n 2)) xs-right)))
+            (both
+              (if (< n 100)
+                  (cons (funcall do-left)
+                        (funcall do-right))
+                  (lparallel:plet
+                      ((left (funcall do-left))
+                       (right (funcall do-right)))
+                    (cons left right))))
+            (box (enclosing (bvh-aabb (car both))
+                            (bvh-aabb (cdr both)))))
+         (list 'split box (car both) (cdr both))))))
+  (mk 0 (length all-objs) all-objs))
 
 (defstruct sphere
   pos
@@ -271,18 +274,20 @@
   (defun on-pixel (pixel)
     (format out "~A ~A ~A~%" (first pixel) (second pixel) (third pixel)))
   (format out "P3~%~A ~A~%255~%" (image-width image) (image-height image))
-  (mapc #'on-pixel (image-pixels image)))
+  (map nil #'on-pixel (image-pixels image)))
 
 (defun render (objs width height cam)
-  (defun pixel (l)
-    (let* ((i (mod l width))
-           (j (- height (/ l width))))
-      (colour-to-pixel (trace-ray objs width height cam j i))))
-  ;; TODO: Parallelise
-  (make-image :pixels (loop for n from 0 to (* height width)
-                            collect (pixel n))
-              :height height
-              :width width))
+  (let ((v (make-array (list (* height width)))))
+    (defun pixel (l)
+      (let* ((i (mod l width))
+             (j (- height (/ l width))))
+        (setf (aref v l)
+              (colour-to-pixel (trace-ray objs width height cam j i)))))
+    (lparallel:pdotimes (n (* height width))
+      (pixel n))
+    (make-image :pixels v
+                :height height
+                :width width)))
 
 (defstruct scene
   cam-look-from
