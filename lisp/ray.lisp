@@ -1,3 +1,7 @@
+;;;; ray.lisp
+
+(in-package #:ray)
+
 (defun vec3-x (v) (first v))
 
 (defun vec3-y (v) (second v))
@@ -134,15 +138,16 @@
                 (t
                  (let*
                      ((xs-sorted
-                       ;; TODO: Parallelise
-                       (sort xs (lambda (a b)
-                                  (let ((axis
-                                         (cond
+                        ;; TODO: Parallelise
+                        (sort xs
+                              (lambda (a b)
+                                (let ((axis
+                                        (cond
                                           ((= (mod d 3) 0) #'vec3-x)
                                           ((= (mod d 3) 1) #'vec3-y)
                                           (t #'vec3-z))))
-                                    (< (funcall axis (centre (funcall to-aabb a)))
-                                       (funcall axis (centre (funcall to-aabb b))))))))
+                                  (< (funcall axis (centre (funcall to-aabb a)))
+                                     (funcall axis (centre (funcall to-aabb b))))))))
                       (xs-left (subseq xs-sorted 0 (floor n 2)))
                       (xs-right (subseq xs-sorted (floor n 2)))
                       (do-left (lambda () (mk (1+ d) (floor n 2) xs-left)))
@@ -299,7 +304,7 @@
                     (floor x n)
                   (funcall f j i))))
 
-(defconstant +RGBBOX+
+(defun rgbbox ()
   (let* ((n 10)
          (k 60.0)
          (leftwall (tabulate-2d
@@ -344,7 +349,7 @@
      :cam-look-at '(0.0 -1.0 -1.0)
      :cam-fov 75.0)))
 
-(defconstant +IRREG+
+(defun irreg ()
   (let* ((n 100)
          (k 600.0)
          (bottom (tabulate-2d
