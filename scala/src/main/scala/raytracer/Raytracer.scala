@@ -18,7 +18,8 @@ object Raytracer {
         val invD = 1.0 / dir_
         val t0 = (min_ - origin_) * invD
         val t1 = (max_ - origin_) * invD
-        val (t0_, t1_) = if (invD < 0) (t1, t0) else (t0, t1)
+        val t0_ = if (invD < 0) t1 else t0
+        val t1_ = if (invD < 0) t0 else t1
         val tMin__ = t0_ max tMin_
         val tMax__ = t1_ min tMax_
         (tMin__, tMax__)
