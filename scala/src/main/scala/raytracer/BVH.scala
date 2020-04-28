@@ -18,16 +18,10 @@ final case class AABB(min: Vec3, max: Vec3) {
 
   @inline def axis(d: Int): Double =
     d % 3 match {
-      case 0 => centre.x
-      case 1 => centre.y
-      case 2 => centre.z
+      case 0 => min.x + max.x - min.x
+      case 1 => min.y + max.y - min.y
+      case 2 => min.z + max.z - min.z
     }
-
-  @inline def centre: Vec3 =
-    Vec3( min.x + max.x - min.x
-        , min.y + max.y - min.y
-        , min.z + max.z - min.z
-        )
 }
 
 sealed abstract class BVH[A] extends Product with Serializable {
