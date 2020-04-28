@@ -13,6 +13,10 @@ scalacOptions ++= Seq(
     "-opt-inline-from:**"
   )
 
+fork := true
+
+javaOptions := Seq("-Xms2G", "-Xmx2G", "-XX:+UseG1GC", "-XX:+UseStringDeduplication")
+
 libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0"
 
 enablePlugins(JmhPlugin)

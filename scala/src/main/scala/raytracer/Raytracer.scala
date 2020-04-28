@@ -1,13 +1,11 @@
 package raytracer
 
 object Raytracer {
-
   type Pos = Vec3
   type Dir = Vec3
-
   type Color = Vec3
-  val black: Color = Vec3(0, 0, 0)
-  val white: Color = Vec3(1, 1, 1)
+  final val Black: Color = Vec3(0, 0, 0)
+  final val White: Color = Vec3(1, 1, 1)
 
   final case class Ray(origin: Pos, dir: Dir) {
 
@@ -35,50 +33,52 @@ object Raytracer {
         }
       }
     }
-
   }
+
   final case class Hit(t: Double, p: Pos, normal: Dir, color: Color)
   final case class Sphere(pos: Pos, color: Color, radius: Double) {
-    def aabb: AABB = AABB(
-      pos - Vec3(radius, radius, radius),
-      pos + Vec3(radius, radius, radius))
+    private[this] final val radiusSqrd = radius * radius
+    private[this] final val scalaFactor = 1.0 / radius
+
+    def aabb: AABB = {
+      val rVec = Vec3(radius, radius, radius)
+      AABB(pos - rVec, pos + rVec)
+    }
 
     def hit(ray: Ray, tMin: Double, tMax: Double): Option[Hit] = {
       val oc = ray.origin - pos
       val a = ray.dir dot ray.dir
       val b = oc dot ray.dir
-      val c = (oc dot oc) - radius * radius
-      val discriminant = b*b - a*c
+      val c = (oc dot oc) - radiusSqrd
+      val discriminant = b * b - a * c
+
       def tryHit(temp: Double) =
-        if(temp < tMax && temp > tMin)
-          Some(
-            Hit( temp
-               , ray.pointAtParam(temp)
-               , (ray.pointAtParam(temp) - pos).scale(1.0 / radius)
-               , color
-               ))
+        if (temp < tMax && temp > tMin) {
+          val pointAtParam = ray.pointAtParam(temp)
+          Some(Hit(temp, pointAtParam, (pointAtParam - pos).scale(scalaFactor), color))
+        }
         else None
 
-      if(discriminant <= 0) None
-      else tryHit((-b - math.sqrt(b*b - a*c)) / a) match {
-        case s: Some[Hit] => s
-        case None => tryHit((-b + math.sqrt(b*b - a*c))/a)
+      if (discriminant <= 0) None
+      else {
+        val sqrtDiscriminant = math.sqrt(discriminant)
+
+        tryHit((-b - sqrtDiscriminant) / a) match {
+          case s: Some[Hit] => s
+          case None => tryHit((-b + sqrtDiscriminant) / a)
+        }
       }
     }
-
   }
-
-    
 
   type Objs = BVH[Sphere]
 
   def objsHit(objs: Objs, ray: Ray, tMin: Double, tMax: Double): Option[Hit] = objs match {
-    case Leaf(_, sphere) =>
-      sphere.hit(ray, tMin, tMax)
+    case Leaf(_, sphere) => sphere.hit(ray, tMin, tMax)
     case Split(box, left, right) =>
       if(!ray.aabbHit(box, tMin, tMax)) None
       else objsHit(left, ray, tMin, tMax) match {
-        case Some(hit1) => Some(objsHit(right, ray, tMin, hit1.t).getOrElse(hit1))
+        case opt@Some(hit1) => objsHit(right, ray, tMin, hit1.t).orElse(opt)
         case None => objsHit(right, ray, tMin, tMax)
       }
   }
@@ -110,23 +110,19 @@ object Raytracer {
   @inline def reflect(v: Vec3, n: Vec3): Vec3 =
     v - n.scale(2 * (v dot n))
 
-  @inline def scatter(ray: Ray, hit: Hit): Option[(Ray, Vec3)] = {
-    val reflected = reflect(ray.dir.normalise, hit.normal)
-    val scattered = Ray(hit.p, reflected)
-    if((reflected dot hit.normal) > 0)
-      Some((scattered, hit.color)) else None
+  @inline def scatter(rayDir: Dir, hit: Hit): Option[Ray] = {
+    val reflected = reflect(rayDir.normalise, hit.normal)
+    if((reflected dot hit.normal) > 0) Some(Ray(hit.p, reflected)) else None
   }
 
-  def rayColor(objs: Objs, ray: Ray, depth: Int): Color = objsHit(objs, ray, 0.001, (1.0 / 0.0)) match {
-    case Some(hit) => scatter(ray, hit) match {
-      case Some((scattered, attenuation)) if depth < 50 =>
-        attenuation * rayColor(objs, scattered, depth+1)
-      case _ => black
-    }
-    case None =>
-      val unitDir = ray.dir.normalise
-      val t = 0.5 * (unitDir + Vec3.one).y
-      Vec3.one.scale(1.0-t) + Vec3(0.5, 0.7, 1).scale(t)
+  def rayColor(objs: Objs, ray: Ray, depth: Int): Color = objsHit(objs, ray, 0.001, 1.0 / 0.0) match {
+      case Some(hit) => scatter(ray.dir, hit) match {
+        case Some(scattered) if depth < 50 => hit.color * rayColor(objs, scattered, depth+1)
+        case _ => Black
+      }
+      case None =>
+        val t = 0.5 * (ray.dir.normalise.y + 1.0)
+        Vec3.one.scale(1.0-t) + Vec3(0.5, 0.7, 1).scale(t)
   }
 
   def traceRay(objs: Objs, width: Int, height: Int, camera: Camera, j: Int, i: Int): Color =
@@ -135,13 +131,11 @@ object Raytracer {
         i.toDouble / width.toDouble,
         j.toDouble / height.toDouble), 0)
 
-  def colorToPixel(c: Color): Image.Pixel =
-    ((255.99 * c.x).toByte, (255.99 * c.y).toByte, (255.99 * c.z).toByte)
-
-
-  def render(objs: Objs, width: Int, height: Int, camera: Camera): Image =
-    Image(width, height, (j, i) =>
-        colorToPixel(traceRay(objs, width, height, camera, j, i)))
+  def render(objs: Objs, width: Int, height: Int, camera: Camera): Image = {
+    import raytracer.Image.Pixel
+    val colorToPixel = (c: Color) => new Pixel((255.99 * c.x).toByte, (255.99 * c.y).toByte, (255.99 * c.z).toByte)
+    Image(width, height, (j, i) => colorToPixel(traceRay(objs, width, height, camera, j, i)))
+  }
 
   def time[R](text: String, reps: Int, block: => R): R = {
     val timingHack: Seq[(Double, R)] = (1 to reps).map { _ =>
