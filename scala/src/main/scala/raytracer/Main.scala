@@ -1,7 +1,6 @@
 package raytracer
 
 import scala.util.Try
-import scala.concurrent.ExecutionContext.Implicits.global
 import raytracer.Raytracer.render
 
 object Main {

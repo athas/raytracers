@@ -3,7 +3,6 @@ package raytracer
 import org.openjdk.jmh.annotations._
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.ExecutionContext.Implicits.global
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.AverageTime))
