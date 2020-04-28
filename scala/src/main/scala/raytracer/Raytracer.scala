@@ -135,13 +135,11 @@ object Raytracer {
         i.toDouble / width.toDouble,
         j.toDouble / height.toDouble), 0)
 
-  def colorToPixel(c: Color): Image.Pixel =
-    ((255.99 * c.x).toByte, (255.99 * c.y).toByte, (255.99 * c.z).toByte)
-
-
-  def render(objs: Objs, width: Int, height: Int, camera: Camera): Image =
-    Image(width, height, (j, i) =>
-        colorToPixel(traceRay(objs, width, height, camera, j, i)))
+  def render(objs: Objs, width: Int, height: Int, camera: Camera): Image = {
+    import raytracer.Image.Pixel
+    val colorToPixel = (c: Color) => new Pixel((255.99 * c.x).toByte, (255.99 * c.y).toByte, (255.99 * c.z).toByte)
+    Image(width, height, (j, i) => colorToPixel(traceRay(objs, width, height, camera, j, i)))
+  }
 
   def time[R](text: String, reps: Int, block: => R): R = {
     val timingHack: Seq[(Double, R)] = (1 to reps).map { _ =>
