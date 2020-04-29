@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
       scene_name = optarg;
       break;
     case 'r':
-      runs = 10;
+      runs = atoi(optarg);
       break;
     default: /* '?' */
       fprintf(stderr,
