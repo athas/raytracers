@@ -47,7 +47,7 @@ numbers within the same column.**
 Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
 [F#](fsharp/)             | 0.4ms |  826ms |  5.6ms |  434ms
-[Futhark (GPU)](futhark/) | 5.5ms |   30ms |  5.8ms |   16ms
+[Futhark (GPU)](futhark/) | 3.5ms |   30ms |  3.6ms |   16ms
 [Futhark (CPU)](futhark/) |11.5ms |  241ms | 18.3ms |   94ms
 [Haskell](haskell/)       | 0.6ms |  372ms |  8.5ms |  195ms
 [MPL][mpl]                | 0.4ms |  341ms |  9.4ms |  112ms
