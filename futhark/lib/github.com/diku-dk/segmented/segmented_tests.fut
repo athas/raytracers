@@ -54,3 +54,19 @@ entry test_segmented_iota (flags:[]bool) : []i32 =
 
 entry test_expand (arr:[]i32) : []i32 =
   expand (\ x -> x) (\x i -> x*i) arr
+
+-- ==
+-- entry: test_expand_reduce
+-- input { [2,0,3,1] }
+-- output { [2,9,0] }
+
+entry test_expand_reduce (arr:[]i32) : []i32 =
+  expand_reduce (\ x -> x) (\x i -> x*i) (+) 0 arr
+
+-- ==
+-- entry: test_expand_outer_reduce
+-- input { [2,0,3,1] }
+-- output { [2,0,9,0] }
+
+entry test_expand_outer_reduce (arr:[]i32) : []i32 =
+  expand_outer_reduce (\ x -> x) (\x i -> x*i) (+) 0 arr

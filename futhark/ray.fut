@@ -80,7 +80,7 @@ let objs_hit (bvh: objs) (r: ray) (t_min: f32) (t_max: f32) : opt hit =
     case #some h -> (i, h.t)
   let (j, t_max) = bvh_fold contains closest_hit (-1, t_max) bvh
   in if j >= 0
-     then let s = unsafe bvh.L[j]
+     then let s = #[unsafe] bvh.L[j]
           in sphere_hit s r t_min (t_max+1)
      else #none
 

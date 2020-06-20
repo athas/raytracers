@@ -71,4 +71,33 @@ let expand 'a 'b (sz: a -> i32) (get: a -> i32 -> b) (arr:[]a) : []b =
   let szs = map sz arr
   let idxs = replicated_iota szs
   let iotas = segmented_iota (map2 (!=) idxs (rotate (i32.negate 1) idxs))
-  in map2 (\i j -> get (unsafe arr[i]) j) idxs iotas
+  in map2 (\i j -> get arr[i] j) idxs iotas
+
+-- | Expansion function equivalent to performing a segmented reduction
+-- to the result of a general expansion with a flags vector expressing
+-- the beginning of the expanded segments. The function makes use of
+-- the intermediate flags vector generated as part of the expansion
+-- and the `expand_reduce` function is therefore more efficient than
+-- if a segmented reduction (with an appropriate flags vector) is
+-- explicitly followed by a call to expand.
+
+let expand_reduce 'a 'b (sz: a -> i32) (get: a -> i32 -> b)
+                        (op: b -> b -> b) (ne:b) (arr:[]a) : []b =
+  let szs = map sz arr
+  let idxs = replicated_iota szs
+  let flags = map2 (!=) idxs (rotate (i32.negate 1) idxs)
+  let iotas = segmented_iota flags
+  let vs = map2 (\i j -> get arr[i] j) idxs iotas
+  in segmented_reduce op ne flags vs
+
+-- | Expansion followed by an ''outer segmented reduce'' that ensures
+-- that each element in the result array corresponds to expanding and
+-- reducing the corresponding element in the source array.
+
+let expand_outer_reduce 'a 'b [n] (sz: a -> i32) (get: a -> i32 -> b)
+                                  (op: b -> b -> b) (ne: b)
+                                  (arr: [n]a) : [n]b =
+  let sz' x = let s = sz x
+              in if s == 0 then 1 else s
+  let get' x i = if sz x == 0 then ne else get x i
+  in (expand_reduce sz' get' op ne arr) :> [n]b

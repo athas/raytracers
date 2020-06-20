@@ -47,8 +47,8 @@ let bvh_mk [n] 't (bbf: t -> aabb) (ts: [n]t) : bvh [n] t =
   let depth = t32 (f32.log2 (r32 n)) + 2
   let get_aabb inners ptr =
     match ptr
-    case #leaf i -> bbf (unsafe ts[i])
-    case #inner i -> unsafe inners[i].aabb
+    case #leaf i -> bbf (#[unsafe] ts[i])
+    case #inner i -> #[unsafe] inners[i].aabb
   let update inners {aabb=_, left, right, parent} =
     {aabb = enclosing (get_aabb inners left) (get_aabb inners right),
      left,
@@ -62,7 +62,7 @@ let bvh_fold [n] 'a 'b (contains: aabb -> bool) (op: b -> i32 -> a -> b) (init: 
   (.0) <|
   loop (acc, cur, prev) = (init, 0, #inner (-1))
   while cur != -1 do
-  let node = unsafe t.I[cur]
+  let node = #[unsafe] t.I[cur]
   let from_left = prev == node.left
   let from_right = prev == node.right
   let rec_child : #rec ptr | #norec =
@@ -81,4 +81,4 @@ let bvh_fold [n] 'a 'b (contains: aabb -> bool) (op: b -> i32 -> a -> b) (init: 
      case #rec ptr ->
        match ptr
        case #inner i -> (acc, i, #inner cur)
-       case #leaf i -> (op acc i (unsafe t.L[i]), cur, ptr)
+       case #leaf i -> (op acc i (#[unsafe] t.L[i]), cur, ptr)

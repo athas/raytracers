@@ -25,4 +25,4 @@ let insertion_sort [n] 't ((<=): t -> t -> bool) (xs: [n]t): *[n]t =
 let insertion_sort_by_key [n] 't 'k (key: t -> k) ((<=): k -> k -> bool) (xs: [n]t): [n]t =
   zip (map key xs) (iota n)
   |> insertion_sort (\(x, _) (y, _) -> x <= y)
-  |> map (\(_, i) -> unsafe xs[i])
+  |> map (\(_, i) -> xs[i])

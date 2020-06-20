@@ -11,8 +11,8 @@ type inner = {left:ptr, right:ptr, parent: i32}
 let mk_radix_tree [n] (L: [n]u32) : []inner =
 
   let delta (i, j) = if j >= 0 && j < n
-                     then let Li = unsafe L[i]
-                          let Lj = unsafe L[j]
+                     then let Li = #[unsafe] L[i]
+                          let Lj = #[unsafe] L[j]
                           -- Handle duplicates by using index as
                           -- tiebreaker if necessary.
                           in if Li == Lj

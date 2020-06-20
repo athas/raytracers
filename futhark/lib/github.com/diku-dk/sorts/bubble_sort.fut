@@ -11,8 +11,8 @@ let bubble_sort [n] 't ((<=): t -> t -> bool) (xs: [n]t): [n]t =
     let j = i + dir
     let cmp x y = if dir == 1 then x <= y
                   else ! (x <= y)
-    in unsafe if j >= 0 && j < n && (xs[j] `cmp` xs[i])
-              then (true, xs[j]) else (false, xs[i])
+    in if j >= 0 && j < n && (xs[j] `cmp` xs[i])
+       then (true, xs[j]) else (false, xs[i])
   let iter xs (b: i32) =
     let (changed, xs) = tabulate n (f b xs) |> unzip
     in (xs, -b, or changed)
@@ -22,4 +22,4 @@ let bubble_sort [n] 't ((<=): t -> t -> bool) (xs: [n]t): [n]t =
 let bubble_sort_by_key [n] 't 'k (key: t -> k) ((<=): k -> k -> bool) (xs: [n]t): [n]t =
   zip (map key xs) (iota n)
   |> bubble_sort (\(x, _) (y, _) -> x <= y)
-  |> map (\(_, i) -> unsafe xs[i])
+  |> map (\(_, i) -> xs[i])
