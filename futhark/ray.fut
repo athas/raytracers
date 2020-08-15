@@ -1,5 +1,6 @@
 import "prim"
 
+let scene_epsilon:f32 = 0.1
 type pos = vec3
 type dir = vec3
 type colour = vec3
@@ -75,7 +76,7 @@ type~ objs = bvh [] sphere
 let objs_hit (bvh: objs) (r: ray) (t_min: f32) (t_max: f32) : opt hit =
   let contains aabb = aabb_hit aabb r t_min t_max
   let closest_hit (j, t_max) i s =
-    match sphere_hit s r t_min t_max
+    match sphere_hit s r scene_epsilon t_max
     case #none -> (j, t_max)
     case #some h -> (i, h.t)
   let (j, t_max) = bvh_fold contains closest_hit (-1, t_max) bvh
@@ -126,7 +127,7 @@ let ray_colour objs r (max_depth: i32) =
   (.3) <|
   loop (r, depth, light, colour) = (r, 0, vec(1,1,1), vec(0,0,0))
   while depth < max_depth do
-    match objs_hit objs r 0.001 1000000000.0
+    match objs_hit objs r 0.000 1000000000.0
     case #some hit ->
       (match scatter r hit
        case #some (scattered, attenuation) ->
