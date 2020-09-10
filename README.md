@@ -55,7 +55,7 @@ Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 [Rust](rust/)             | 0.1ms |  248ms |  1.1ms |   98ms
 [Scala](scala/)           | 0.2ms |  594ms |  4.3ms |  251ms
 
-[mpl]: https://github.com/MPLLang/mpl/blob/master/examples/src/ray.sml
+[mpl]: https://github.com/MPLLang/mpl/tree/master/examples/src/ray
 
 ## Commentary
 
