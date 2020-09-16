@@ -48,11 +48,11 @@ Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
 [F#](fsharp/)             | 0.4ms |  826ms |  5.6ms |  434ms
 [Futhark (GPU)](futhark/) | 3.5ms |   30ms |  3.6ms |   16ms
-[Futhark (CPU)](futhark/) |11.5ms |  241ms | 18.3ms |   94ms
+[Futhark (CPU)](futhark/) | 0.2ms |  230ms |  0.3ms |   85ms
 [Haskell](haskell/)       | 0.6ms |  372ms |  8.5ms |  195ms
 [MPL][mpl]                | 0.4ms |  341ms |  9.4ms |  112ms
 [OCaml](ocaml/)           | 1.3ms |  723ms |   15ms |  240ms
-[Rust](rust/)             | 0.1ms |  248ms |  1.1ms |   98ms
+[Rust](rust/)             | 0.1ms |  242ms |  1.1ms |   96ms
 [Scala](scala/)           | 0.2ms |  594ms |  4.3ms |  251ms
 
 [mpl]: https://github.com/MPLLang/mpl/tree/master/examples/src/ray
