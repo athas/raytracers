@@ -18,11 +18,11 @@ expresses two interesting kinds of parallelism (see below), and
 because even an ugly image is more interesting than just a number.
 Two scenes are used.  The first is **rgbbox**:
 
-![rgbbox](rgbbox.png)
+![rgbbox](rgbbox.png?stopcachingthis)
 
 The second is **irreg**:
 
-![irreg](irreg.png)
+![irreg](irreg.png?stopcachingthis)
 
 This second scene is interesting because the load is unbalanced: all
 objects are in the lower half of the pixels.
