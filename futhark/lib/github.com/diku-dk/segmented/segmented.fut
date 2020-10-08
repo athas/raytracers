@@ -25,7 +25,7 @@ let segmented_reduce [n] 't (op: t -> t -> t) (ne: t)
   -- Find the segment ends.
   let segment_ends = rotate 1 flags
   -- Find the offset for each segment end.
-  let segment_end_offsets = segment_ends |> map i32.bool |> scan (+) 0
+  let segment_end_offsets = segment_ends |> map i64.bool |> scan (+) 0
   let num_segments = if n > 0 then last segment_end_offsets else 0
   -- Make room for the final result.  The specific value we write here
   -- does not matter; they will all be overwritten by the segment
@@ -41,11 +41,11 @@ let segmented_reduce [n] 't (op: t -> t -> t) (ne: t)
 -- the repetition array. As an example, replicated_iota [2,3,1]
 -- returns the array [0,0,1,1,1,2].
 
-let replicated_iota [n] (reps:[n]i32) : []i32 =
+let replicated_iota [n] (reps:[n]i64) : []i64 =
   let s1 = scan (+) 0 reps
   let s2 = map2 (\i x -> if i==0 then 0 else x)
                 (iota n) (rotate (-1) s1)
-  let tmp = reduce_by_index (replicate (reduce (+) 0 reps) 0) i32.max 0 s2 (iota n)
+  let tmp = reduce_by_index (replicate (reduce (+) 0 reps) 0) i64.max 0 s2 (iota n)
   let flags = map (>0) tmp
   in segmented_scan (+) 0 flags tmp
 
@@ -55,7 +55,7 @@ let replicated_iota [n] (reps:[n]i32) : []i32 =
 -- [false,false,false,true,false,false,false] returns the array
 -- [0,1,2,0,1,2,3].
 
-let segmented_iota [n] (flags:[n]bool) : [n]i32 =
+let segmented_iota [n] (flags:[n]bool) : [n]i64 =
   let iotas = segmented_scan (+) 0 flags (replicate n 1)
   in map (\x -> x-1) iotas
 
@@ -67,10 +67,10 @@ let segmented_iota [n] (flags:[n]bool) : [n]i32 =
 -- source. As an example, the expression expand (\x->x) (*) [2,3,1]
 -- returns the array [0,2,0,3,6,0].
 
-let expand 'a 'b (sz: a -> i32) (get: a -> i32 -> b) (arr:[]a) : []b =
+let expand 'a 'b (sz: a -> i64) (get: a -> i64 -> b) (arr:[]a) : []b =
   let szs = map sz arr
   let idxs = replicated_iota szs
-  let iotas = segmented_iota (map2 (!=) idxs (rotate (i32.negate 1) idxs))
+  let iotas = segmented_iota (map2 (!=) idxs (rotate (i64.negate 1) idxs))
   in map2 (\i j -> get arr[i] j) idxs iotas
 
 -- | Expansion function equivalent to performing a segmented reduction
@@ -81,11 +81,11 @@ let expand 'a 'b (sz: a -> i32) (get: a -> i32 -> b) (arr:[]a) : []b =
 -- if a segmented reduction (with an appropriate flags vector) is
 -- explicitly followed by a call to expand.
 
-let expand_reduce 'a 'b (sz: a -> i32) (get: a -> i32 -> b)
+let expand_reduce 'a 'b (sz: a -> i64) (get: a -> i64 -> b)
                         (op: b -> b -> b) (ne:b) (arr:[]a) : []b =
   let szs = map sz arr
   let idxs = replicated_iota szs
-  let flags = map2 (!=) idxs (rotate (i32.negate 1) idxs)
+  let flags = map2 (!=) idxs (rotate (i64.negate 1) idxs)
   let iotas = segmented_iota flags
   let vs = map2 (\i j -> get arr[i] j) idxs iotas
   in segmented_reduce op ne flags vs
@@ -94,10 +94,10 @@ let expand_reduce 'a 'b (sz: a -> i32) (get: a -> i32 -> b)
 -- that each element in the result array corresponds to expanding and
 -- reducing the corresponding element in the source array.
 
-let expand_outer_reduce 'a 'b [n] (sz: a -> i32) (get: a -> i32 -> b)
+let expand_outer_reduce 'a 'b [n] (sz: a -> i64) (get: a -> i64 -> b)
                                   (op: b -> b -> b) (ne: b)
                                   (arr: [n]a) : [n]b =
   let sz' x = let s = sz x
               in if s == 0 then 1 else s
   let get' x i = if sz x == 0 then ne else get x i
-  in (expand_reduce sz' get' op ne arr) :> [n]b
+  in expand_reduce sz' get' op ne arr :> [n]b

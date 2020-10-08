@@ -148,8 +148,8 @@ let ray_colour objs r (max_depth: i32) =
           (scale (1.0-t) white `vec_add` scale t bg))
 
 let trace_ray objs width height cam j i : colour =
-  let u = r32 i / r32 width
-  let v = r32 j / r32 height
+  let u = f32.i64 i / f32.i64 width
+  let v = f32.i64 j / f32.i64 height
   let ray = get_ray cam u v
   in ray_colour objs ray 50
 
@@ -181,38 +181,38 @@ entry rgbbox : scene =
     flatten <|
     tabulate_2d n n (\y z ->
                        { pos={x=(-k/2.0),
-                              y=(-k/2.0 + (k/r32 n) * r32 y),
-                              z=(-k/2.0 + (k/r32 n) * r32 z)}
+                              y=(-k/2.0 + (k/f32.i64 n) * f32.i64 y),
+                              z=(-k/2.0 + (k/f32.i64 n) * f32.i64 z)}
                        , colour={x=1.0, y=0.0, z=0.0}
-                       , radius = (k/(r32 n*2.0))})
+                       , radius = (k/(f32.i64 n*2.0))})
 
   let midwall =
     flatten <|
     tabulate_2d n n (\x y ->
-                       { pos={x=(-k/2.0 + (k/r32 n) * r32 x),
-                              y=(-k/2.0 + (k/r32 n) * r32 y),
+                       { pos={x=(-k/2.0 + (k/f32.i64 n) * f32.i64 x),
+                              y=(-k/2.0 + (k/f32.i64 n) * f32.i64 y),
                               z=(-k/2.0)}
                        , colour={x=1.0, y=1.0, z=0.0}
-                       , radius = (k/(r32 n*2.0))})
+                       , radius = (k/(f32.i64 n*2.0))})
 
   let rightwall =
     flatten <|
     tabulate_2d n n (\y z ->
                        { pos={x=(k/2.0),
-                              y=(-k/2.0 + (k/r32 n) * r32 y),
-                              z=(-k/2.0 + (k/r32 n) * r32 z)}
+                              y=(-k/2.0 + (k/f32.i64 n) * f32.i64 y),
+                              z=(-k/2.0 + (k/f32.i64 n) * f32.i64 z)}
                        , colour={x=0.0, y=0.0, z=1.0}
-                       , radius = (k/(r32 n*2.0))})
+                       , radius = (k/(f32.i64 n*2.0))})
 
 
   let bottom =
     flatten <|
     tabulate_2d n n (\x z ->
-                       { pos={x=(-k/2.0 + (k/r32 n) * r32 x),
+                       { pos={x=(-k/2.0 + (k/f32.i64 n) * f32.i64 x),
                               y=(-k/2.0),
-                              z=(-k/2.0 + (k/r32 n) * r32 z)}
+                              z=(-k/2.0 + (k/f32.i64 n) * f32.i64 z)}
                        , colour={x=1.0, y=1.0, z=1.0}
-                       , radius = (k/(r32 n*2.0))})
+                       , radius = (k/(f32.i64 n*2.0))})
 
 
   in { spheres = leftwall ++ midwall ++ rightwall ++ bottom
@@ -226,11 +226,11 @@ entry irreg : scene =
     let bottom =
       flatten <|
       tabulate_2d n n (\x z ->
-                         { pos={x=(-k/2.0 + (k/r32 n) * r32 x),
+                         { pos={x=(-k/2.0 + (k/f32.i64 n) * f32.i64 x),
                                 y=0.0,
-                                z=(-k/2.0 + (k/r32 n) * r32 z)}
+                                z=(-k/2.0 + (k/f32.i64 n) * f32.i64 z)}
                          , colour = white
-                         , radius = k/(r32 n * 2.0)})
+                         , radius = k/(f32.i64 n * 2.0)})
     in { spheres = bottom
        , look_from = {x=0.0, y=12.0, z=30.0}
        , look_at = {x=0.0, y=10.0, z= -1.0}
@@ -241,7 +241,7 @@ type~ prepared_scene = {objs:objs, cam:camera}
 entry prepare_scene h w (scene: scene) : prepared_scene =
   {objs=bvh_mk sphere_aabb scene.spheres,
    cam=camera scene.look_from scene.look_at {x=0.0, y=1.0, z=0.0}
-              scene.fov (r32 w/r32 h)}
+              scene.fov (f32.i64 w/f32.i64 h)}
 
 entry render h w ({objs, cam}: prepared_scene) =
   render_image objs w h cam

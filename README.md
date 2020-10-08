@@ -48,7 +48,7 @@ Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
 [F#](fsharp/)             | 0.4ms |  826ms |  5.6ms |  434ms
 [Futhark (GPU)](futhark/) | 3.5ms |   30ms |  3.6ms |   16ms
-[Futhark (CPU)](futhark/) | 0.2ms |  230ms |  0.3ms |   85ms
+[Futhark (CPU)](futhark/) | 0.2ms |  230ms |  0.3ms |   84ms
 [Haskell](haskell/)       | 0.6ms |  372ms |  8.5ms |  195ms
 [MPL][mpl]                | 0.4ms |  341ms |  9.4ms |  112ms
 [OCaml](ocaml/)           | 1.3ms |  723ms |   15ms |  240ms
@@ -94,8 +94,7 @@ BVHs, Octrees, and *k*-d
 Trees](https://research.nvidia.com/sites/default/files/publications/karras2012hpg_paper.pdf).
 This is actually a pretty fast technique (although not for the small
 scenes used here), but it is about two hundred lines longer than the
-recursive formulation.  The CPU timings use an [early experimental
-multicore backend](https://github.com/diku-dk/futhark/tree/multicore)
+recursive formulation.  The CPU timings use the `multicore` backend
 and `clang` for compiling the C code.
 
 Rust is the fastest CPU language.  This is not terribly surprising, as

@@ -13,7 +13,7 @@ let bubble_sort [n] 't ((<=): t -> t -> bool) (xs: [n]t): [n]t =
                   else ! (x <= y)
     in if j >= 0 && j < n && (xs[j] `cmp` xs[i])
        then (true, xs[j]) else (false, xs[i])
-  let iter xs (b: i32) =
+  let iter xs b =
     let (changed, xs) = tabulate n (f b xs) |> unzip
     in (xs, -b, or changed)
   in (loop (xs, b, continue) = (xs, 1, true) while continue do iter xs b).0

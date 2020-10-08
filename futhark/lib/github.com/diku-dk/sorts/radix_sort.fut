@@ -49,18 +49,17 @@ local let radix_sort_step [n] 't (xs: [n]t) (get_bit: i32 -> t -> i32)
 -- you want.
 let radix_sort [n] 't (num_bits: i32) (get_bit: i32 -> t -> i32)
                       (xs: [n]t): [n]t =
-  if n == 0
-  then xs
-  else loop xs for i < (num_bits+2-1)/2 do radix_sort_step xs get_bit (i*2)
+  let iters = if n == 0 then 0 else (num_bits+2-1)/2
+  in loop xs for i < iters do radix_sort_step xs get_bit (i*2)
 
-let with_indices [n] 'a (xs: [n]a) : [n](a, i32) =
+let with_indices [n] 'a (xs: [n]a) : [n](a, i64) =
   zip xs (iota n)
 
 local let by_key_wrapper [n] 't sorter key num_bits get_bit (xs: [n]t) : [n]t =
   map key xs
   |> with_indices
   |> sorter num_bits (\i (k, _) -> get_bit i k)
-  |> map (\(_, i) -> xs[i]) -- OK because '0<=i<n'.
+  |> map (\(_, i : i64) -> xs[i]) -- OK because '0<=i<n'.
 
 -- | Like `radix_sort`, but sort based on key function.
 let radix_sort_by_key [n] 't 'k

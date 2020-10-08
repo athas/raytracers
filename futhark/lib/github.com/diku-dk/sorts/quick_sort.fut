@@ -4,57 +4,57 @@
 
 local import "../segmented/segmented"
 
-local let segmented_replicate [n] (reps:[n]i32) (vs:[n]i32) : []i32 =
+local let segmented_replicate [n] 't (reps:[n]i64) (vs:[n]t) : []t =
   let idxs = replicated_iota reps
   in map (\i -> vs[i]) idxs
 
-local let info 't ((<=): t -> t -> bool) (x:t) (y:t) : i32 =
+local let info 't ((<=): t -> t -> bool) (x:t) (y:t) : i64 =
   if x <= y then
      if y <= x then 0 else -1
   else 1
 
-local let tripit (x: i32): (i32,i32,i32) =
+local let tripit (x: i64): (i64,i64,i64) =
   if x < 0 then (1,0,0)
   else if x > 0 then (0,0,1) else (0,1,0)
 
-local let tripadd (a1:i32,e1:i32,b1:i32) (a2,e2,b2) =
+local let tripadd (a1:i64,e1:i64,b1:i64) (a2,e2,b2) =
   (a1+a2,e1+e2,b1+b2)
 
-local type sgm = {start:i32,sz:i32}  -- segment
+local type sgm = {start:i64,sz:i64}  -- segment
 
 local let step [n][k] 't ((<=): t -> t -> bool) (xs:*[n]t) (sgms:[k]sgm) : (*[n]t,[]sgm) =
   --let _ = trace {NEW_STEP=()}
 
   -- find a pivot for each segment
   let pivots : []t = map (\sgm -> xs[sgm.start + sgm.sz/2]) sgms
-  let sgms_szs : []i32 = map (\sgm -> sgm.sz) sgms
+  let sgms_szs : []i64 = map (\sgm -> sgm.sz) sgms
   let idxs = replicated_iota sgms_szs
   let m = length idxs
-  let idxs = idxs :> [m]i32
+  let idxs = idxs :> [m]i64
 
   -- find the indexes into values in segments; after a value equal to
   -- a pivot has moved, it will no longer be part of a segment (it
   -- need not be moved again).
   let is =
     let is1 = segmented_replicate sgms_szs (map (\x -> x.start) sgms)
-              :> [m]i32
-    let fs = map2 (!=) is1 (rotate (i32.negate 1) is1)
+              :> [m]i64
+    let fs = map2 (!=) is1 (rotate (i64.negate 1) is1)
     let is2 = segmented_iota fs
     in map2 (+) is1 is2
 
   -- for each such value, how does it compare to the pivot associated
   -- with the segment?
-  let infos : []i32 = map2 (\idx i -> info (<=) xs[i] pivots[idx])
+  let infos : []i64 = map2 (\idx i -> info (<=) xs[i] pivots[idx])
                            idxs is
-  let orders : [](i32,i32,i32) = map tripit infos
+  let orders : [](i64,i64,i64) = map tripit infos
 
   -- compute segment descriptor
   let flags =
-    let flags = map2 (!=) idxs (rotate (i32.negate 1) idxs)
+    let flags = map2 (!=) idxs (rotate (i64.negate 1) idxs)
     in flags with [0] = true
 
   -- compute partition sizes for each segment
-  let pszs = segmented_reduce tripadd (0,0,0) flags orders :> [k](i32,i32,i32)
+  let pszs = segmented_reduce tripadd (0,0,0) flags orders :> [k](i64,i64,i64)
 
   -- compute the new segments
   let sgms' =
@@ -64,8 +64,8 @@ local let step [n][k] 't ((<=): t -> t -> bool) (xs:*[n]t) (sgms:[k]sgm) : (*[n]
     |> filter (\sgm -> sgm.sz > 1)
 
   -- compute the new positions of the values in the present segments
-  let newpos : []i32 =
-    let where : [](i32,i32,i32) = segmented_scan tripadd (0,0,0) flags orders
+  let newpos : []i64 =
+    let where : [](i64,i64,i64) = segmented_scan tripadd (0,0,0) flags orders
     in map3 (\i (a,e,b) info ->
              let (x,y,_) = pszs[i]
              let s = sgms[i].start

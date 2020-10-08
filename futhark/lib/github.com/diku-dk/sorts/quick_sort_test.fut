@@ -35,7 +35,7 @@ entry sort_f32 (xs: []f32) = qsort (f32.<=) xs
 entry sort_perm_i32 [n] (xs: [n]i32) =
   zip xs (iota n)
   |> qsort_by_key (.0) (<=)
-  |> map (.1)
+  |> map ((.1) >-> i32.i64)
 
 -- ==
 -- entry: sort_perm_f32
@@ -45,4 +45,4 @@ entry sort_perm_i32 [n] (xs: [n]i32) =
 entry sort_perm_f32 [n] (xs: [n]f32) =
   zip xs (iota n)
   |> qsort_by_key (.0) (<=)
-  |> map (.1)
+  |> map ((.1) >-> i32.i64)

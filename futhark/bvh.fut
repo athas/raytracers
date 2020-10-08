@@ -44,7 +44,7 @@ let bvh_mk [n] 't (bbf: t -> aabb) (ts: [n]t) : bvh [n] t =
   let empty_aabb = {min = vec(0,0,0), max = vec(0,0,0)}
   let empty_aabb {left, right, parent} = {aabb=empty_aabb, left, right, parent}
   let inners = map empty_aabb (mk_radix_tree (map morton ts))
-  let depth = t32 (f32.log2 (r32 n)) + 2
+  let depth = t32 (f32.log2 (f32.i64 n)) + 2
   let get_aabb inners ptr =
     match ptr
     case #leaf i -> bbf (#[unsafe] ts[i])
