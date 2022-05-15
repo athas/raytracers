@@ -34,9 +34,9 @@ surroundingBox box0 box1 =
 aabbCentre :: AABB -> Vec3
 aabbCentre aabb =
   Vec3
-  (vecX (aabbMin aabb) + (vecX (aabbMax aabb) - vecX (aabbMin aabb)))
-  (vecY (aabbMin aabb) + (vecY (aabbMax aabb) - vecY (aabbMin aabb)))
-  (vecZ (aabbMin aabb) + (vecZ (aabbMax aabb) - vecZ (aabbMin aabb)))
+  (vecX (aabbMin aabb) + 0.5 * (vecX (aabbMax aabb) - vecX (aabbMin aabb)))
+  (vecY (aabbMin aabb) + 0.5 * (vecY (aabbMax aabb) - vecY (aabbMin aabb)))
+  (vecZ (aabbMin aabb) + 0.5 * (vecZ (aabbMax aabb) - vecZ (aabbMin aabb)))
 
 data BVH a = BVHLeaf AABB a
            | BVHSplit AABB (BVH a) (BVH a)

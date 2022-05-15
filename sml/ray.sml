@@ -47,9 +47,9 @@ fun enclosing (box0: aabb) (box1: aabb) =
   in {min=small, max=big} end
 
 fun centre (aabb: aabb) =
-    { x = (#x (#min aabb) + (#x (#max aabb) - #x (#min aabb))),
-      y = (#y (#min aabb) + (#y (#max aabb) - #y (#min aabb))),
-      z = (#z (#min aabb) + (#z (#max aabb) - #z (#min aabb)))
+    { x = #x (#min aabb) + 0.5 * (#x (#max aabb) - #x (#min aabb)),
+      y = #y (#min aabb) + 0.5 * (#y (#max aabb) - #y (#min aabb)),
+      z = #z (#min aabb) + 0.5 * (#z (#max aabb) - #z (#min aabb))
     }
 
 datatype 'a bvh = bvh_leaf of aabb * 'a

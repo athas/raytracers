@@ -45,6 +45,6 @@ let enclosing (box0: aabb) (box1: aabb) : aabb =
   in {min = small, max = big}
 
 let centre ({min, max}: aabb) =
-  {x=min.x + (max.x - min.x),
-   y=min.y + (max.y - min.y),
-   z=min.z + (max.z - min.z)}
+  {x=min.x + 0.5 * (max.x - min.x),
+   y=min.y + 0.5 * (max.y - min.y),
+   z=min.z + 0.5 * (max.z - min.z)}

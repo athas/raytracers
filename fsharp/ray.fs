@@ -66,9 +66,9 @@ let inline enclosing box0 box1 =
     { Min = small; Max = big }
 
 let inline centre aabb =
-    { X = aabb.Min.X + aabb.Max.X - aabb.Min.X
-      Y = aabb.Min.Y + aabb.Max.Y - aabb.Min.Y
-      Z = aabb.Min.Z + aabb.Max.Z - aabb.Min.Z }
+    { X = aabb.Min.X + 0.5f * (aabb.Max.X - aabb.Min.X)
+      Y = aabb.Min.Y + 0.5f * (aabb.Max.Y - aabb.Min.Y)
+      Z = aabb.Min.Z + 0.5f * (aabb.Max.Z - aabb.Min.Z) }
 
 type Bvh<'T> =
     | BvhLeaf of AABB * 'T

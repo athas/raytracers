@@ -91,9 +91,9 @@ pub struct Aabb {
 impl Aabb {
     fn centre(&self) -> Vec3 {
         Vec3 {
-            x: self.min.x + (self.max.x - self.min.x),
-            y: self.min.y + (self.max.y - self.min.y),
-            z: self.min.z + (self.max.z - self.min.z),
+            x: self.min.x + 0.5 * (self.max.x - self.min.x),
+            y: self.min.y + 0.5 * (self.max.y - self.min.y),
+            z: self.min.z + 0.5 * (self.max.z - self.min.z),
         }
     }
 

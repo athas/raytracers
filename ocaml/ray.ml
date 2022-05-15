@@ -56,9 +56,9 @@ let enclosing (box0: aabb) (box1: aabb) =
   in { min = small; max = big }
 
 let centre (aabb: aabb) = {
-  x = aabb.min.x +. aabb.max.x -. aabb.min.x;
-  y = aabb.min.y +. aabb.max.y -. aabb.min.y;
-  z = aabb.min.z +. aabb.max.z -. aabb.min.z;
+  x = aabb.min.x +. 0.5 *. (aabb.max.x -. aabb.min.x);
+  y = aabb.min.y +. 0.5 *. (aabb.max.y -. aabb.min.y);
+  z = aabb.min.z +. 0.5 *. (aabb.max.z -. aabb.min.z);
 }
 
 type 'a bvh =
