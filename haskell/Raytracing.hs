@@ -1,5 +1,6 @@
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
+{-# LANGUAGE DataKinds #-}
 module Raytracing
   ( Pos, Dir, Camera, mkCamera
   , Sphere(..), sphereAABB
@@ -180,10 +181,10 @@ traceRay objs width height cam =
               ray = getRay cam u v
           in rayColour objs ray 0
 
-colourToPixel :: Colour -> Pixel SRGB Word8
+colourToPixel :: Colour -> Pixel (SRGB 'NonLinear) Word8
 colourToPixel (Vec3 r g b) = toPixel8 $ PixelSRGB r g b
 
-render :: Objs -> Int -> Int -> Camera -> Image S SRGB Word8
+render :: Objs -> Int -> Int -> Camera -> Image S (SRGB 'NonLinear) Word8
 render objs height width cam =
   mkImage height width $ \j i ->
   colourToPixel $ traceRay objs width height cam j i

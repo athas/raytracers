@@ -4,5 +4,6 @@ with import (builtins.fetchTarball {
 }) {};
 stdenv.mkDerivation {
   name = "ray";
-  buildInputs = [ sbt gnumake ];
+  # FIXME: this is not enough.  See README.md.
+  buildInputs = [ opam ];
 }

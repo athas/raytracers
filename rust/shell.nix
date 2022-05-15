@@ -4,5 +4,5 @@ with import (builtins.fetchTarball {
 }) {};
 stdenv.mkDerivation {
   name = "ray";
-  buildInputs = [ sbt gnumake ];
+  buildInputs = [ cargo rustc ];
 }
