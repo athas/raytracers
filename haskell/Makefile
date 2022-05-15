@@ -8,6 +8,9 @@ irreg_1000.ppm:
 	cabal run ray -- irreg 1000 1000
 	mv irreg.png $@
 
+bench:
+	cabal bench
+
 .PHONY: clean
 
 clean:
