@@ -4,5 +4,9 @@ with import (builtins.fetchTarball {
 }) {};
 stdenv.mkDerivation {
   name = "ray";
-  buildInputs = [ sbt gnumake ];
+  buildInputs = [ (sbt.override {jre=jdk17;})
+                  jdk17
+                  (scala.override {jre=jdk17;})
+                  gnumake
+                ];
 }
