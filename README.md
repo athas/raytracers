@@ -46,13 +46,13 @@ numbers within the same column.**
 
 Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
-[F#](fsharp/)             | 0.4ms |  826ms |  5.6ms |  434ms
+[F#](fsharp/)             | 0.5ms |  816ms |  6.1ms |  437ms
 [Futhark (GPU)](futhark/) | 3.5ms |   30ms |  3.6ms |   16ms
-[Futhark (CPU)](futhark/) | 0.2ms |  230ms |  0.3ms |   84ms
-[Haskell](haskell/)       | 0.6ms |  372ms |  8.5ms |  195ms
+[Futhark (CPU)](futhark/) | 0.2ms |  179ms |  2.8ms |   62ms
+[Haskell](haskell/)       | 0.3ms |  590ms | 12.2ms |  344ms
 [MPL][mpl]                | 0.4ms |  341ms |  9.4ms |  112ms
 [OCaml](ocaml/)           | 1.3ms |  723ms |   15ms |  240ms
-[Rust](rust/)             | 0.1ms |  242ms |  1.1ms |   96ms
+[Rust](rust/)             | 0.1ms |  258ms |  0.8ms |  100ms
 [Scala](scala/)           | 0.2ms |  594ms |  4.3ms |  251ms
 
 [mpl]: https://github.com/MPLLang/mpl/tree/master/examples/src/ray
@@ -97,9 +97,11 @@ scenes used here), but it is about two hundred lines longer than the
 recursive formulation.  The CPU timings use the `multicore` backend
 and `clang` for compiling the C code.
 
-Rust is the fastest CPU language.  This is not terribly surprising, as
-it has a mature compiler, and its default behaviour of unboxing
-everything is exactly what you need for this program.
+While Rust is not a functional language, it is included as an example
+of the performance of (relatively) low level programming.
+Unsurprisingly, it is among the fastest CPU languages, as it has a
+mature compiler, and its default behaviour of unboxing everything is
+exactly what you need for this program.
 
 What is not visible from the above table is that most of the
 implementations were significantly slower in their original
