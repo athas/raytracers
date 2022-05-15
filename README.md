@@ -53,7 +53,7 @@ Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 [MPL][mpl]                | 0.4ms |  341ms |  9.4ms |  112ms
 [OCaml](ocaml/)           | 1.3ms |  723ms |   15ms |  240ms
 [Rust](rust/)             | 0.1ms |  258ms |  0.8ms |  100ms
-[Scala](scala/)           | 0.2ms |  594ms |  4.3ms |  251ms
+[Scala](scala/)           | 0.2ms |  306ms |  4.2ms |  126ms
 
 [mpl]: https://github.com/MPLLang/mpl/tree/master/examples/src/ray
 
