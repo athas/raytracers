@@ -41,13 +41,13 @@ For each scene, two things are benchmarked:
 ## Results
 
 The following measurements are for 1000x1000 renderings.  I used a
-Ryzen 1700X (8 cores, 16 threads) CPU and a Vega 64 GPU.  **Compare
+Ryzen 1700X (8 cores, 16 threads) CPU and an MI100 GPU.  **Compare
 numbers within the same column.**
 
 Language | rgbbox (BVH) | rgbbox (render) | irreg (BVH) | irreg (render)
 -------- | ------------ | --------------- | ----------- | --------------
 [F#](fsharp/)             | 0.5ms |  816ms |  6.1ms |  437ms
-[Futhark (GPU)](futhark/) | 3.5ms |   30ms |  3.6ms |   16ms
+[Futhark (GPU)](futhark/) | 1.1ms |   14ms |  1.4ms |    8ms
 [Futhark (CPU)](futhark/) | 0.2ms |  179ms |  2.8ms |   62ms
 [Haskell](haskell/)       | 0.3ms |  590ms | 12.2ms |  344ms
 [MPL][mpl]                | 0.4ms |  341ms |  9.4ms |  112ms
