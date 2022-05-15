@@ -2,7 +2,7 @@ package raytracer
 import scala.collection.immutable.Nil
 
 final case class AABB(min: Vec3, max: Vec3) {
-  @inline def surroundingBox(that: AABB): AABB = {
+  inline def surroundingBox(that: AABB): AABB = {
     val small =
       Vec3( math.min(this.min.x, that.min.x)
           , math.min(this.min.y, that.min.y)
@@ -16,7 +16,7 @@ final case class AABB(min: Vec3, max: Vec3) {
     AABB(small, big)
   }
 
-  @inline def axis(d: Int): Double =
+  inline def axis(d: Int): Double =
     d % 3 match {
       case 0 => min.x + max.x - min.x
       case 1 => min.y + max.y - min.y

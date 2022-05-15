@@ -1,23 +1,13 @@
-ThisBuild / scalaVersion := "2.13.8"
+ThisBuild / scalaVersion := "3.1.2"
 
 lazy val root = (project in file("."))
   .settings(name := "raytracer")
-
-scalacOptions ++= Seq(
-    "-encoding", "utf8",
-    "-deprecation",
-    "-unchecked",
-    "-Xlint",
-    "-feature",
-    "-opt:l:method",
-    "-opt-inline-from:**"
-  )
 
 fork := true
 
 javaOptions := Seq("-Xms2G", "-Xmx2G", "-XX:+UseG1GC", "-XX:+UseStringDeduplication")
 
-libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0"
+libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4"
 
 enablePlugins(JmhPlugin)
 
