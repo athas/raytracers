@@ -187,4 +187,4 @@ colourToPixel (Vec3 r g b) = toPixel8 $ PixelSRGB r g b
 render :: Objs -> Int -> Int -> Camera -> Image S (SRGB 'NonLinear) Word8
 render objs height width cam =
   mkImage height width $ \j i ->
-  colourToPixel $ traceRay objs width height cam j i
+  colourToPixel $ traceRay objs width height cam (height-j) i
