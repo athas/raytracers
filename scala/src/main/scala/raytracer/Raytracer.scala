@@ -9,7 +9,7 @@ object Raytracer {
 
   final case class Ray(origin: Pos, dir: Dir) {
 
-    @inline def pointAtParam(t: Double): Pos = origin + dir.scale(t)
+    inline def pointAtParam(t: Double): Pos = origin + dir.scale(t)
 
     def aabbHit(aabb: AABB, tMin0: Double, tMax0: Double): Boolean = {
       def go(min_ : Double, max_ : Double, origin_ : Double, dir_ : Double, tMin_ : Double, tMax_ : Double): (Double, Double) = {
@@ -107,10 +107,10 @@ object Raytracer {
        , cam.llc + cam.horizontal.scale(s) + cam.vertical.scale(t) - cam.origin
        )
 
-  @inline def reflect(v: Vec3, n: Vec3): Vec3 =
+  inline def reflect(v: Vec3, n: Vec3): Vec3 =
     v - n.scale(2 * (v dot n))
 
-  @inline def scatter(rayDir: Dir, hit: Hit): Option[Ray] = {
+  inline def scatter(rayDir: Dir, hit: Hit): Option[Ray] = {
     val reflected = reflect(rayDir.normalise, hit.normal)
     if((reflected dot hit.normal) > 0) Some(Ray(hit.p, reflected)) else None
   }
@@ -135,18 +135,5 @@ object Raytracer {
     import raytracer.Image.Pixel
     val colorToPixel = (c: Color) => new Pixel((255.99 * c.x).toByte, (255.99 * c.y).toByte, (255.99 * c.z).toByte)
     Image(width, height, (j, i) => colorToPixel(traceRay(objs, width, height, camera, j, i)))
-  }
-
-  def time[R](text: String, reps: Int, block: => R): R = {
-    val timingHack: Seq[(Double, R)] = (1 to reps).map { _ =>
-      val t0 = System.nanoTime()
-      val result = block    // call-by-name
-      val t1 = System.nanoTime()
-      ((t1 - t0)/1000000.0, result)
-    }
-    val timings = timingHack.map(_._1)
-    println(s"$text: ${timings.sum / timings.length}ms (average over $reps repetitions)")
-    // First result
-    timingHack.head._2
   }
 }
