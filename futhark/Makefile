@@ -1,5 +1,5 @@
-CC?=gcc
-FUTHARK_BACKEND?=opencl
+CC?=clang
+FUTHARK_BACKEND?=multicore
 
 ifeq ($(FUTHARK_BACKEND),opencl)
 CFLAGS=-O3 -std=c99
